@@ -37,8 +37,11 @@ public class ProductService {
         // Count total items for pagination metadata
         long totalItems = productDAO.countProducts(nameFilter);
 
+        // Compute current page index (0-based)
+        int currentPage = offset / limit;
+
         // Return generic PaginatedResponse
-        return new PaginatedResponse<>(dtoList, totalItems, offset, limit);
+        return new PaginatedResponse<>(dtoList, totalItems, currentPage, limit);
     }
 
     /** Retrieve single product as DTO */
@@ -78,8 +81,3 @@ public class ProductService {
         return false;
     }
 }
-
-
-
-
-

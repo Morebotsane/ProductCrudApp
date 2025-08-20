@@ -2,6 +2,7 @@ package com.example.resources;
 
 import com.example.dto.CartItemRequest;
 import com.example.dto.CartResponse;
+import com.example.dto.mappers.CartMapper;
 import com.example.services.CartService;
 
 import jakarta.inject.Inject;
@@ -17,11 +18,14 @@ public class CartResource {
     @Inject
     private CartService cartService;
 
+    @Inject
+    private CartMapper cartMapper;
+
     @POST
     @Path("/customer/{customerId}")
     public Response createCartForCustomer(@PathParam("customerId") Long customerId) {
         try {
-            CartResponse response = cartService.toCartResponse(
+            CartResponse response = cartMapper.toCartResponse(
                     cartService.createCartForCustomer(customerId)
             );
             return Response.status(Response.Status.CREATED).entity(response).build();
@@ -38,7 +42,7 @@ public class CartResource {
     public Response addProduct(@PathParam("cartId") Long cartId,
                                 @Valid CartItemRequest itemRequest) {
         try {
-            CartResponse response = cartService.toCartResponse(
+            CartResponse response = cartMapper.toCartResponse(
                     cartService.addProduct(cartId, itemRequest.getProductId(), itemRequest.getQuantity())
             );
             return Response.ok(response).build();
@@ -55,7 +59,7 @@ public class CartResource {
     public Response removeProduct(@PathParam("cartId") Long cartId,
                                    @PathParam("productId") Long productId) {
         try {
-            CartResponse response = cartService.toCartResponse(
+            CartResponse response = cartMapper.toCartResponse(
                     cartService.removeProduct(cartId, productId)
             );
             return Response.ok(response).build();
@@ -72,7 +76,7 @@ public class CartResource {
     public Response decrementQuantity(@PathParam("cartId") Long cartId,
                                       @PathParam("productId") Long productId) {
         try {
-            CartResponse response = cartService.toCartResponse(
+            CartResponse response = cartMapper.toCartResponse(
                     cartService.decrementProductQuantity(cartId, productId)
             );
             return Response.ok(response).build();
@@ -114,7 +118,7 @@ public class CartResource {
     @Path("/{cartId}")
     public Response getCart(@PathParam("cartId") Long cartId) {
         try {
-            CartResponse response = cartService.toCartResponse(
+            CartResponse response = cartMapper.toCartResponse(
                     cartService.getCartById(cartId)
             );
             return Response.ok(response).build();

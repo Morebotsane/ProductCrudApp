@@ -7,13 +7,13 @@ import com.example.entities.Product;
 import com.example.dao.CartDAO;
 import com.example.dao.CustomerDAO;
 import com.example.dao.ProductDAO;
-import com.example.dto.CartItemResponse;
-import com.example.dto.CartResponse;
+//import com.example.dto.CartItemResponse;
+//import com.example.dto.CartResponse;
 
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 import java.math.BigDecimal;
-import java.util.List;
+//import java.util.List;
 import java.util.Optional;
 
 @Stateless
@@ -114,8 +114,8 @@ public class CartService {
 
     public BigDecimal getTotal(Cart cart) {
         return cart.getItems().stream()
-                .map(CartItem::getSubtotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                   .map(CartItem::getSubtotal)
+                   .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public BigDecimal getTotalWithVAT(Cart cart) {
@@ -131,22 +131,6 @@ public class CartService {
         return getTotalWithVAT(getCartById(cartId));
     }
 
-    // ---- Mapping to DTOs ----
-
-    public CartResponse toCartResponse(Cart cart) {
-        List<CartItemResponse> itemResponses = cart.getItems().stream()
-                .map(CartItemResponse::fromEntity)
-                .toList();
-
-        return new CartResponse(
-                cart.getId(),
-                cart.getStatus(),
-                itemResponses,
-                getTotal(cart),
-                getTotalWithVAT(cart)
-        );
-    }
-
     // ---- DAO Access ----
 
     public Cart getCartById(Long cartId) {
@@ -157,4 +141,3 @@ public class CartService {
         return cart;
     }
 }
-

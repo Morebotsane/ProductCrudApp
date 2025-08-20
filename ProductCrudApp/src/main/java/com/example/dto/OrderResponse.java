@@ -31,8 +31,8 @@ public class OrderResponse {
 
         if (order.getItems() != null) {
             response.items = order.getItems().stream()
-                    .map(OrderItemResponse::fromEntity)
-                    .collect(Collectors.toList());
+                    			  .map(OrderItemResponse::fromEntity)
+                    			  .collect(Collectors.toList());
         }
         return response;
     }
@@ -47,9 +47,17 @@ public class OrderResponse {
             this.name = name;
             this.email = email;
         }
-        public Long getId() { return id; }
-        public String getName() { return name; }
-        public String getEmail() { return email; }
+        public Long getId() {
+        	return id; 
+        }
+        
+        public String getName() { 
+        	return name; 
+        }
+        
+        public String getEmail() {
+        	return email;
+        }
     }
 
     // Getters

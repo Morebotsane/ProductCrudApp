@@ -3,6 +3,10 @@ package com.example.resources;
 import com.example.dto.CustomerRequest;
 import com.example.dto.CustomerResponse;
 import com.example.dto.PaginatedResponse;
+import com.example.dto.ProductResponse;
+
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponseSchema;
+
 import com.example.dto.APIResponse;
 import com.example.services.CustomerService;
 import jakarta.inject.Inject;
@@ -10,48 +14,62 @@ import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @Path("/customers")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Tag(name = "Customers", description = "Operations related to customers")
 public class CustomerResource {
 
     @Inject
     private CustomerService customerService;
 
-    /** Create a new customer */
     @POST
+    @Operation(summary = "Create a new customer")
+    @APIResponseSchema(value = ProductResponse.class, responseDescription = "Created product")
     public Response createCustomer(@Valid CustomerRequest request) {
         CustomerResponse response = customerService.createCustomer(request);
-        return Response.status(Response.Status.CREATED).entity(response).build();
+        return Response.status(Response.Status.CREATED)
+        			   .entity(new APIResponse<>(true, "ProducCustomer created successfully", response))
+        			   .build();
     }
 
-    /** Get customer by ID */
     @GET
     @Path("/{id}")
-    public Response getCustomer(@PathParam("id") Long id) {
-        CustomerResponse response = customerService.getCustomerById(id);
-        if (response == null) {
+    @Operation(summary = "Get customer by id")
+    @APIResponseSchema(value = CustomerResponse.class, responseDescription = "Customer details")
+    public Response getCustomer(
+    		@Parameter(description = "Product ID") @PathParam("id") Long id 
+    ) {
+        CustomerResponse customer = customerService.getCustomerById(id);
+        if (customer == null) {
             return Response.status(Response.Status.NOT_FOUND)
-                           .entity("Customer not found")
+                           .entity(new APIResponse<>(false, "Customer not found", null))
                            .build();
         }
-        return Response.ok(response).build();
+        return Response.ok(new APIResponse<>(true, "Customer retrieved successfully", customer)).build();
     }
 
-    /** List customers with pagination and optional email filter */
     @GET
+    @Operation(summary = "List of Customers with pagination")
+    @APIResponseSchema(value = PaginatedResponse.class, responseDescription = "Paginated list of customers")
     public Response getCustomers(
-            @QueryParam("page") @DefaultValue("1") int page,
-            @QueryParam("size") @DefaultValue("10") int size,
-            @QueryParam("email") String emailFilter
+            @Parameter(description = "Page number (starts at 1)") @QueryParam("page") @DefaultValue("1") int page,
+            @Parameter(description = "Page size") @QueryParam("size") @DefaultValue("10") int size,
+            @Parameter(description = "Optional name filter") @QueryParam("name") String emailFilter
     ) {
-        PaginatedResponse<CustomerResponse> response = customerService.getCustomers(page, size, emailFilter);
-        return Response.ok(response).build();
+        PaginatedResponse<CustomerResponse> customers = customerService.getCustomers(page, size, emailFilter);
+        
+        return Response.ok(new APIResponse<>(true, "Customers fetched successfully", customers)).build();
     }
 
-    /** Update an existing customer */
     @PUT
     @Path("/{id}")
+    @Operation(summary = "Update an existing customer by id")
+    @APIResponseSchema(value = CustomerResponse.class, responseDescription = "Customer Deleted")
     public Response updateCustomer(
             @PathParam("id") Long id,
             @Valid CustomerRequest request
@@ -59,24 +77,23 @@ public class CustomerResource {
         CustomerResponse updated = customerService.updateCustomer(id, request);
         if (updated == null) {
             return Response.status(Response.Status.NOT_FOUND)
-                           .entity("Customer not found")
+                           .entity(new APIResponse<>(false, "Customer not found", null))
                            .build();
         }
-        return Response.ok(updated).build();
+        return Response.ok(new APIResponse<>(true, "Customer updated successfully", null)).build();
     }
 
-    /** Delete customer by ID */
     @DELETE
     @Path("/{id}")
+    @Operation(summary = "Delete customer by id")
+    @APIResponseSchema(value = CustomerResponse.class, responseDescription = "Customer Deleted")
     public Response deleteCustomer(@PathParam("id") Long id) {
         boolean deleted = customerService.deleteCustomer(id);
         if (!deleted) {
             return Response.status(Response.Status.NOT_FOUND)
-                           .entity("Customer not found")
+                           .entity(new APIResponse<>(false, "Customer not found", null))
                            .build();
         }
-        return Response.ok().entity("Customer deleted successfully").build();
+        return Response.ok().entity(new APIResponse<>(true, "Customer deleted successfully", null)).build();
     }
 }
-
-

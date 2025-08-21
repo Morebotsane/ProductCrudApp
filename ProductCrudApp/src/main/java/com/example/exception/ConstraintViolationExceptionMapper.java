@@ -23,4 +23,3 @@ public class ConstraintViolationExceptionMapper implements ExceptionMapper<Const
         return Response.status(Response.Status.BAD_REQUEST).entity(errors).build();
     }
 }
-

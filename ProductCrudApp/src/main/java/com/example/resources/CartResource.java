@@ -5,6 +5,7 @@ import com.example.dto.CartResponse;
 import com.example.dto.mappers.CartMapper;
 import com.example.services.CartService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -13,6 +14,7 @@ import jakarta.ws.rs.core.*;
 @Path("/carts")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Tag(name = "Carts", description = "Operations related to carts")
 public class CartResource {
 
     @Inject

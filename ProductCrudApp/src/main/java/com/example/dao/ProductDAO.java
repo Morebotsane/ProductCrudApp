@@ -12,9 +12,6 @@ public class ProductDAO extends BaseDAO<Product> {
         super(Product.class);
     }
 
-    /**
-     * Retrieve paginated and optionally filtered products.
-     */
     public List<Product> findProducts(int offset, int limit, String nameFilter) {
         String jpql = "SELECT p FROM Product p";
         if (nameFilter != null && !nameFilter.isEmpty()) {
@@ -33,9 +30,6 @@ public class ProductDAO extends BaseDAO<Product> {
         return query.getResultList(); // container manages EM lifecycle
     }
 
-    /**
-     * Count total products optionally filtered by name.
-     */
     public long countProducts(String nameFilter) {
         String jpql = "SELECT COUNT(p) FROM Product p";
         if (nameFilter != null && !nameFilter.isEmpty()) {

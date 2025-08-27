@@ -5,8 +5,6 @@ import com.example.dto.CustomerResponse;
 import com.example.dto.PaginatedResponse;
 import com.example.dto.ProductResponse;
 
-import org.eclipse.microprofile.openapi.annotations.responses.APIResponseSchema;
-
 import com.example.dto.APIResponse;
 import com.example.services.CustomerService;
 import jakarta.inject.Inject;
@@ -14,9 +12,10 @@ import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponseSchema;
 
 @Path("/customers")
 @Produces(MediaType.APPLICATION_JSON)

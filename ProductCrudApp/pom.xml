@@ -40,21 +40,6 @@
 		    <scope>test</scope>
 		</dependency>
 		
-		<!-- https://mvnrepository.com/artifact/io.smallrye/smallrye-open-api-core -->
-		<dependency>
-		    <groupId>io.smallrye</groupId>
-		    <artifactId>smallrye-open-api-core</artifactId>
-		    <version>4.1.1</version>
-		</dependency>
-		
-		
-		<!-- https://mvnrepository.com/artifact/io.smallrye/smallrye-open-api-ui -->
-		<dependency>
-		    <groupId>io.smallrye</groupId>
-		    <artifactId>smallrye-open-api-ui</artifactId>
-		    <version>4.1.1</version>
-		</dependency>
-		
 		<dependency>
 		    <groupId>org.mockito</groupId>
 		    <artifactId>mockito-core</artifactId>
@@ -82,26 +67,20 @@
 		    <version>5.3.0</version>
 		    <scope>test</scope>
 		</dependency>
-		
-		<dependency>
-		    <groupId>io.swagger.core.v3</groupId>
-		    <artifactId>swagger-annotations</artifactId>
-		    <version>2.2.22</version> <!-- or latest version -->
-		</dependency>
-		
-		<dependency>
-		    <groupId>io.swagger.core.v3</groupId>
-		    <artifactId>swagger-jaxrs2</artifactId>
-		    <version>2.2.22</version>
-		</dependency>
-   
+	
+		<!-- MicroProfile OpenAPI API (just the API, GlassFish provides impl) -->
 		<dependency>
 		    <groupId>org.eclipse.microprofile.openapi</groupId>
 		    <artifactId>microprofile-openapi-api</artifactId>
-		    <version>3.1.1</version>
-		    <scope>provided</scope>
-		</dependency>   
-   
+		    <version>4.0.2</version>
+		</dependency>
+        
+		<dependency>
+		    <groupId>io.smallrye</groupId>
+		    <artifactId>smallrye-open-api-jaxrs</artifactId>
+		    <version>4.0.8</version>
+		</dependency>
+	
     </dependencies>
 
     <build>

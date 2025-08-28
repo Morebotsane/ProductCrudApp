@@ -7,13 +7,10 @@ import com.example.entities.Product;
 import com.example.dao.CartDAO;
 import com.example.dao.CustomerDAO;
 import com.example.dao.ProductDAO;
-//import com.example.dto.CartItemResponse;
-//import com.example.dto.CartResponse;
 
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 import java.math.BigDecimal;
-//import java.util.List;
 import java.util.Optional;
 
 @Stateless
@@ -52,9 +49,15 @@ public class CartService {
         if (product == null) {
             throw new IllegalArgumentException("Product not found");
         }
-
         if (quantity <= 0) {
             throw new IllegalArgumentException("Quantity must be greater than zero");
+        }
+
+        // ---- Stock validation ----
+        if (quantity > product.getStock()) {
+            throw new IllegalArgumentException(
+                "Not enough stock available for product: " + product.getName()
+            );
         }
 
         Optional<CartItem> existingItem = cart.getItems().stream()
@@ -63,7 +66,14 @@ public class CartService {
 
         if (existingItem.isPresent()) {
             CartItem item = existingItem.get();
-            item.setQuantity(item.getQuantity() + quantity);
+            int newQuantity = item.getQuantity() + quantity;
+
+            if (newQuantity > product.getStock()) {
+                throw new IllegalArgumentException(
+                    "Not enough stock available for product: " + product.getName()
+                );
+            }
+            item.setQuantity(newQuantity);
         } else {
             CartItem newItem = new CartItem(product, quantity);
             newItem.setCart(cart);

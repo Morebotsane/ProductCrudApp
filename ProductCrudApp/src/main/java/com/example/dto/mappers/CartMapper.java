@@ -17,9 +17,11 @@ public class CartMapper {
     private CartService cartService;
 
     public CartResponse toCartResponse(Cart cart) {
-        List<CartItemResponse> itemResponses = cart.getItems().stream()
-                .map(CartItemResponse::fromEntity)
-                .toList();
+        List<CartItemResponse> itemResponses = cart.getItems() == null
+                ? List.of()
+                : cart.getItems().stream()
+                    .map(CartItemResponse::fromEntity)
+                    .toList();
 
         return new CartResponse(
                 cart.getId(),
@@ -30,3 +32,4 @@ public class CartMapper {
         );
     }
 }
+

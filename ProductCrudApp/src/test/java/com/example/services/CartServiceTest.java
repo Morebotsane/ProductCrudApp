@@ -20,7 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-public class CartServiceTest {
+class CartServiceTest {
 
     @Mock
     private CartDAO cartDAO;
@@ -39,41 +39,43 @@ public class CartServiceTest {
         MockitoAnnotations.openMocks(this);
     }
 
-    // Create cart for existing customer
+    // --- createCartForCustomer ---
+
     @Test
-    public void testCreateCartForCustomer_Success() {
+    void testCreateCartForCustomer_Success() {
         Customer customer = new Customer();
         customer.setId(1L);
 
         when(customerDAO.findById(Customer.class, 1L)).thenReturn(customer);
 
-        Cart createdCart = cartService.createCartForCustomer(1L);
+        Cart cart = cartService.createCartForCustomer(1L);
 
-        assertNotNull(createdCart);
-        assertEquals(customer, createdCart.getCustomer());
-        verify(cartDAO).save(createdCart);
+        assertNotNull(cart);
+        assertEquals(customer, cart.getCustomer());
+        verify(cartDAO).save(cart);
     }
 
-    // Create cart for non-existent customer
     @Test
-    public void testCreateCartForCustomer_CustomerNotFound_Throws() {
+    void testCreateCartForCustomer_CustomerNotFound_Throws() {
         when(customerDAO.findById(Customer.class, 99L)).thenReturn(null);
 
-        Exception ex = assertThrows(IllegalArgumentException.class, () -> {
-            cartService.createCartForCustomer(99L);
-        });
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> cartService.createCartForCustomer(99L));
 
         assertEquals("Customer not found", ex.getMessage());
     }
 
+    // --- addProduct ---
+
     @Test
-    public void testAddProduct_NewProduct_Success() {
+    void testAddProduct_NewProduct_Success() {
         Cart cart = new Cart();
         cart.setItems(new ArrayList<>());
 
         Product product = new Product();
         product.setId(1L);
         product.setPrice(new BigDecimal("10.00"));
+        product.setStock(10); // <-- fix stock
 
         when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
         when(productDAO.findById(Product.class, 1L)).thenReturn(product);
@@ -86,10 +88,11 @@ public class CartServiceTest {
     }
 
     @Test
-    public void testAddProduct_ExistingProduct_IncreasesQuantity() {
+    void testAddProduct_ExistingProduct_IncreasesQuantity() {
         Product product = new Product();
         product.setId(1L);
         product.setPrice(new BigDecimal("10.00"));
+        product.setStock(10); // <-- fix stock
 
         CartItem existingItem = new CartItem(product, 2);
 
@@ -108,51 +111,52 @@ public class CartServiceTest {
     }
 
     @Test
-    public void testAddProduct_CartNotFound_Throws() {
+    void testAddProduct_CartNotFound_Throws() {
         when(cartDAO.findById(Cart.class, 99L)).thenReturn(null);
 
-        Exception ex = assertThrows(IllegalArgumentException.class, () -> {
-            cartService.addProduct(99L, 1L, 1);
-        });
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> cartService.addProduct(99L, 1L, 1));
 
         assertEquals("Cart not found", ex.getMessage());
     }
 
     @Test
-    public void testAddProduct_ProductNotFound_Throws() {
+    void testAddProduct_ProductNotFound_Throws() {
         Cart cart = new Cart();
         cart.setItems(new ArrayList<>());
 
         when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
         when(productDAO.findById(Product.class, 99L)).thenReturn(null);
 
-        Exception ex = assertThrows(IllegalArgumentException.class, () -> {
-            cartService.addProduct(1L, 99L, 1);
-        });
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> cartService.addProduct(1L, 99L, 1));
 
         assertEquals("Product not found", ex.getMessage());
     }
 
     @Test
-    public void testAddProduct_InvalidQuantity_Throws() {
+    void testAddProduct_InvalidQuantity_Throws() {
         Cart cart = new Cart();
         cart.setItems(new ArrayList<>());
 
         Product product = new Product();
         product.setId(1L);
         product.setPrice(new BigDecimal("10.00"));
+        product.setStock(10); // <-- fix stock
 
         when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
         when(productDAO.findById(Product.class, 1L)).thenReturn(product);
 
-        Exception ex = assertThrows(IllegalArgumentException.class, () -> {
-            cartService.addProduct(1L, 1L, 0);
-        });
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> cartService.addProduct(1L, 1L, 0));
+
         assertEquals("Quantity must be greater than zero", ex.getMessage());
     }
 
+    // --- removeProduct ---
+
     @Test
-    public void testRemoveProduct_Success() {
+    void testRemoveProduct_Success() {
         Product product = new Product();
         product.setId(1L);
 
@@ -172,26 +176,29 @@ public class CartServiceTest {
     }
 
     @Test
-    public void testRemoveProduct_ProductNotFound_Throws() {
+    void testRemoveProduct_ProductNotFound_Throws() {
         Cart cart = new Cart();
         cart.setItems(new ArrayList<>());
 
         when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
 
-        Exception ex = assertThrows(IllegalArgumentException.class, () -> {
-            cartService.removeProduct(1L, 1L);
-        });
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> cartService.removeProduct(1L, 1L));
 
         assertEquals("Product not found in cart", ex.getMessage());
     }
 
+    // --- getTotal / getTotalWithVAT ---
+
     @Test
-    public void testGetTotal() {
+    void testGetTotal() {
         Product product1 = new Product();
         product1.setPrice(new BigDecimal("10.00"));
+        product1.setStock(5); // fix stock
 
         Product product2 = new Product();
         product2.setPrice(new BigDecimal("20.00"));
+        product2.setStock(5); // fix stock
 
         CartItem item1 = new CartItem(product1, 2);
         CartItem item2 = new CartItem(product2, 1);
@@ -209,9 +216,10 @@ public class CartServiceTest {
     }
 
     @Test
-    public void testGetTotalWithVAT() {
+    void testGetTotalWithVAT() {
         Product product = new Product();
         product.setPrice(new BigDecimal("100.00"));
+        product.setStock(5); // fix stock
 
         CartItem item = new CartItem(product, 1);
 
@@ -221,16 +229,19 @@ public class CartServiceTest {
 
         when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
 
-        BigDecimal expected = new BigDecimal("115.00");
+        BigDecimal expected = new BigDecimal("115.00"); // 100 + 15% VAT
         BigDecimal actual = cartService.getTotalWithVAT(1L);
 
         assertEquals(0, expected.compareTo(actual));
     }
 
+    // --- decrementProductQuantity ---
+
     @Test
-    public void testDecrementProductQuantity_DecreaseQuantity() {
+    void testDecrementProductQuantity_DecreaseQuantity() {
         Product product = new Product();
         product.setId(1L);
+        product.setStock(5); // fix stock
 
         CartItem item = new CartItem(product, 3);
 
@@ -246,9 +257,10 @@ public class CartServiceTest {
     }
 
     @Test
-    public void testDecrementProductQuantity_RemoveItem() {
+    void testDecrementProductQuantity_RemoveItem() {
         Product product = new Product();
         product.setId(1L);
+        product.setStock(5); // fix stock
 
         CartItem item = new CartItem(product, 1);
 
@@ -264,16 +276,16 @@ public class CartServiceTest {
     }
 
     @Test
-    public void testDecrementProductQuantity_ProductNotFound_Throws() {
+    void testDecrementProductQuantity_ProductNotFound_Throws() {
         Cart cart = new Cart();
         cart.setItems(new ArrayList<>());
 
         when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
 
-        Exception ex = assertThrows(IllegalArgumentException.class, () -> {
-            cartService.decrementProductQuantity(1L, 1L);
-        });
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> cartService.decrementProductQuantity(1L, 1L));
 
         assertEquals("Product not found in cart", ex.getMessage());
     }
 }
+

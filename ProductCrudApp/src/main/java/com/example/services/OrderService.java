@@ -2,12 +2,14 @@ package com.example.services;
 
 import com.example.dao.CartDAO;
 import com.example.dao.OrderDAO;
+import com.example.dao.ProductDAO;
 import com.example.dto.OrderResponse;
+import com.example.dto.mappers.OrderMapper;
 import com.example.entities.Cart;
 import com.example.entities.CartItem;
 import com.example.entities.Order;
 import com.example.entities.OrderItem;
-import com.example.dto.mappers.OrderMapper;
+import com.example.entities.Product;
 
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
@@ -24,6 +26,9 @@ public class OrderService {
 
     @Inject
     private CartDAO cartDAO;
+
+    @Inject
+    private ProductDAO productDAO;
 
     private static final BigDecimal VAT_RATE = new BigDecimal("0.15");
 
@@ -47,18 +52,35 @@ public class OrderService {
         order.setStatus("NEW");
         order.setOrderDate(LocalDateTime.now());
 
-        // Map CartItems → OrderItems
+        // Track totals
         BigDecimal totalWithoutVAT = BigDecimal.ZERO;
+
+        // Validate stock & map CartItems → OrderItems
         for (CartItem ci : cart.getItems()) {
+            Product product = productDAO.findById(Product.class, ci.getProduct().getId());
+            int quantity = ci.getQuantity();
+
+            if (product == null) {
+                throw new IllegalArgumentException("Product not found: " + ci.getProduct().getId());
+            }
+            if (product.getStock() < quantity) {
+                throw new IllegalArgumentException("Insufficient stock for product: " + product.getName());
+            }
+
+            // Deduct stock
+            product.setStock(product.getStock() - quantity);
+            productDAO.update(product);
+
+            // Create OrderItem
             OrderItem oi = new OrderItem();
-            oi.setProduct(ci.getProduct());
-            oi.setQuantity(ci.getQuantity());
-            oi.setUnitPrice(ci.getProduct().getPrice());
+            oi.setProduct(product);
+            oi.setQuantity(quantity);
+            oi.setUnitPrice(product.getPrice());
             oi.setOrder(order);
             order.addItem(oi);
 
             totalWithoutVAT = totalWithoutVAT.add(
-                    ci.getProduct().getPrice().multiply(BigDecimal.valueOf(ci.getQuantity()))
+                    product.getPrice().multiply(BigDecimal.valueOf(quantity))
             );
         }
 
@@ -112,5 +134,3 @@ public class OrderService {
                 .toList();
     }
 }
-
-

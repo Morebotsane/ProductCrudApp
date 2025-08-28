@@ -26,6 +26,9 @@ public class Customer {
     @NotBlank(message = "Email cannot be empty")
     @Column(nullable = false)
     private String email;
+    
+    @Column(nullable = false)
+    private String phone;
 
     // One customer can have multiple carts
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -78,7 +81,15 @@ public class Customer {
     	this.email = email; 
     }
     
-    public List<Cart> getCarts() {
+    public String getPhone() {
+		return phone;
+	}
+
+	public void setPhone(String phone) {
+		this.phone = phone;
+	}
+
+	public List<Cart> getCarts() {
     	return carts; 
     }
     

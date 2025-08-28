@@ -7,53 +7,56 @@ import com.example.dto.ProductResponse;
 import com.example.entities.Product;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.*;
 
 import java.math.BigDecimal;
-//import java.util.Arrays;
-import java.util.Collections;
-//import java.util.List;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ProductServiceTest {
 
-    @Mock
-    private ProductDAO productDAO;
-
     @InjectMocks
     private ProductService productService;
 
-    private Product product;
+    @Mock
+    private ProductDAO productDAO;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-
-        product = new Product("Laptop", "Gaming Laptop", new BigDecimal("1200.00"));
-        product.setId(1L);
     }
 
     @Test
-    void testGetProducts_withResults() {
-        when(productDAO.findProducts(0, 10, "Laptop")).thenReturn(Collections.singletonList(product));
-        when(productDAO.countProducts("Laptop")).thenReturn(1L);
+    void testGetProducts_withFilters() {
+        // Arrange
+        Product product1 = new Product("Laptop", "High-end laptop", new BigDecimal("1200.00"), "SKU123", 10);
+        Product product2 = new Product("Mouse", "Wireless mouse", new BigDecimal("25.00"), "SKU124", 50);
 
-        PaginatedResponse<ProductResponse> response = productService.getProducts(0, 10, "Laptop");
+        List<Product> products = Arrays.asList(product1, product2);
+        when(productDAO.findProducts(0, 10, "Lap", new BigDecimal("1000"), new BigDecimal("1300"), true))
+                .thenReturn(products);
+        when(productDAO.countProducts("Lap", new BigDecimal("1000"), new BigDecimal("1300"), true))
+                .thenReturn(1L);
 
-        assertEquals(1, response.getItems().size());
-        assertEquals(1L, response.getTotalItems());
-        assertEquals("Laptop", response.getItems().get(0).getName());
+        // Act
+        PaginatedResponse<ProductResponse> response =
+                productService.getProducts(1, 10, "Lap", new BigDecimal("1000"), new BigDecimal("1300"), true);
 
-        verify(productDAO).findProducts(0, 10, "Laptop");
-        verify(productDAO).countProducts("Laptop");
+        // Assert
+        assertNotNull(response);
+        assertEquals(2, response.getItems().size());
+        assertEquals(1, response.getTotalItems());
+        assertEquals(1, response.getCurrentPage());
+        verify(productDAO, times(1)).findProducts(0, 10, "Lap", new BigDecimal("1000"), new BigDecimal("1300"), true);
+        verify(productDAO, times(1)).countProducts("Lap", new BigDecimal("1000"), new BigDecimal("1300"), true);
     }
 
     @Test
     void testGetProductById_found() {
+        Product product = new Product("Laptop", "High-end laptop", new BigDecimal("1200.00"), "SKU123", 10);
         when(productDAO.findById(Product.class, 1L)).thenReturn(product);
 
         ProductResponse response = productService.getProductById(1L);
@@ -64,75 +67,68 @@ class ProductServiceTest {
 
     @Test
     void testGetProductById_notFound() {
-        when(productDAO.findById(Product.class, 99L)).thenReturn(null);
-
-        ProductResponse response = productService.getProductById(99L);
-
+        when(productDAO.findById(Product.class, 1L)).thenReturn(null);
+        ProductResponse response = productService.getProductById(1L);
         assertNull(response);
     }
 
     @Test
     void testCreateProduct() {
-        ProductRequest request = new ProductRequest("Phone", "Smartphone", new BigDecimal("800.00"));
-        Product newProduct = new Product(request.getName(), request.getDescription(), request.getPrice());
-        newProduct.setId(2L);
+        ProductRequest request = new ProductRequest("Laptop", "High-end laptop", new BigDecimal("1200.00"), "SKU123", 10);
 
-        // Mock save: void, so we just doNothing
+        Product createdProduct = new Product(request.getName(), request.getDescription(), request.getPrice(), request.getProductCode(), request.getStock());
         doNothing().when(productDAO).save(any(Product.class));
 
         ProductResponse response = productService.createProduct(request);
 
         assertNotNull(response);
-        assertEquals("Phone", response.getName());
-
-        verify(productDAO).save(any(Product.class));
+        assertEquals(request.getName(), response.getName());
+        verify(productDAO, times(1)).save(any(Product.class));
     }
 
     @Test
     void testUpdateProduct_found() {
-        when(productDAO.findById(Product.class, 1L)).thenReturn(product);
+        Product existing = new Product("Old Laptop", "Old description", new BigDecimal("1000.00"), "SKU000", 5);
+        when(productDAO.findById(Product.class, 1L)).thenReturn(existing);
 
-        ProductRequest updateRequest = new ProductRequest("Updated Laptop", "Better GPU", new BigDecimal("1500.00"));
-        doNothing().when(productDAO).update(product);
+        ProductRequest request = new ProductRequest("Laptop", "Updated description", new BigDecimal("1200.00"), "SKU123", 10);
 
-        ProductResponse response = productService.updateProduct(1L, updateRequest);
+        ProductResponse response = productService.updateProduct(1L, request);
 
         assertNotNull(response);
-        assertEquals("Updated Laptop", response.getName());
-        assertEquals("Better GPU", response.getDescription());
-
-        verify(productDAO).update(product);
+        assertEquals("Laptop", response.getName());
+        assertEquals("Updated description", response.getDescription());
+        verify(productDAO, times(1)).update(existing);
     }
 
     @Test
     void testUpdateProduct_notFound() {
-        when(productDAO.findById(Product.class, 99L)).thenReturn(null);
+        when(productDAO.findById(Product.class, 1L)).thenReturn(null);
 
-        ProductRequest updateRequest = new ProductRequest("Nope", "Doesn't exist", new BigDecimal("999.00"));
-
-        ProductResponse response = productService.updateProduct(99L, updateRequest);
+        ProductRequest request = new ProductRequest("Laptop", "Updated description", new BigDecimal("1200.00"), "SKU123", 10);
+        ProductResponse response = productService.updateProduct(1L, request);
 
         assertNull(response);
+        verify(productDAO, never()).update(any());
     }
 
     @Test
     void testDeleteProduct_found() {
-        when(productDAO.findById(Product.class, 1L)).thenReturn(product);
-        doNothing().when(productDAO).delete(product);
+        Product existing = new Product("Laptop", "High-end laptop", new BigDecimal("1200.00"), "SKU123", 10);
+        when(productDAO.findById(Product.class, 1L)).thenReturn(existing);
+        doNothing().when(productDAO).delete(existing);
 
-        boolean deleted = productService.deleteProduct(1L);
-
-        assertTrue(deleted);
-        verify(productDAO).delete(product);
+        boolean result = productService.deleteProduct(1L);
+        assertTrue(result);
+        verify(productDAO, times(1)).delete(existing);
     }
 
     @Test
     void testDeleteProduct_notFound() {
-        when(productDAO.findById(Product.class, 99L)).thenReturn(null);
-
-        boolean deleted = productService.deleteProduct(99L);
-
-        assertFalse(deleted);
-        verify(productDAO, never()).delete(any(Product.class));
+        when(productDAO.findById(Product.class, 1L)).thenReturn(null);
+        boolean result = productService.deleteProduct(1L);
+        assertFalse(result);
+        verify(productDAO, never()).delete(any());
     }
 }
+

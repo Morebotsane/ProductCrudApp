@@ -8,6 +8,7 @@ import com.example.entities.Product;
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,30 +19,33 @@ public class ProductService {
     private ProductDAO productDAO;
 
     /**
-     * Retrieve paginated and optionally filtered products.
-     *
-     * @param offset     starting index
-     * @param limit      number of products to retrieve
-     * @param nameFilter optional name filter (case-insensitive)
-     * @return PaginatedResponse of ProductResponse
+     * Get products with optional filters and pagination
      */
-    public PaginatedResponse<ProductResponse> getProducts(int offset, int limit, String nameFilter) {
+    public PaginatedResponse<ProductResponse> getProducts(
+            int page,
+            int size,
+            String nameFilter,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Boolean inStock
+    ) {
+        int offset = (page - 1) * size;
+
         // Fetch filtered and paginated products from DAO
-        List<Product> products = productDAO.findProducts(offset, limit, nameFilter);
+        List<Product> products = productDAO.findProducts(offset, size, nameFilter, minPrice, maxPrice, inStock);
 
         // Map entity list to DTO list
         List<ProductResponse> dtoList = products.stream()
-                								.map(ProductResponse::fromEntity)
-                								.collect(Collectors.toList());
+                                                .map(ProductResponse::fromEntity)
+                                                .collect(Collectors.toList());
 
         // Count total items for pagination metadata
-        long totalItems = productDAO.countProducts(nameFilter);
+        long totalItems = productDAO.countProducts(nameFilter, minPrice, maxPrice, inStock);
 
         // Compute current page index (0-based)
-        int currentPage = offset / limit;
+        int currentPage = page;
 
-        // Return generic PaginatedResponse
-        return new PaginatedResponse<>(dtoList, totalItems, currentPage, limit);
+        return new PaginatedResponse<>(dtoList, totalItems, currentPage, size);
     }
 
     /** Retrieve single product as DTO */
@@ -53,7 +57,7 @@ public class ProductService {
 
     /** Create a new product from DTO */
     public ProductResponse createProduct(ProductRequest request) {
-        Product product = new Product(request.getName(), request.getDescription(), request.getPrice());
+        Product product = new Product(request.getName(), request.getDescription(), request.getPrice(), request.getProductCode(), request.getStock());
         productDAO.save(product);
         return ProductResponse.fromEntity(product);
     }

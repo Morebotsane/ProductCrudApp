@@ -11,15 +11,25 @@ public class CustomerResponse {
     private String firstName;
     private String lastName;
     private String email;
+    private String phone;
 
     public CustomerResponse() {}
 
-    public CustomerResponse(Long id, String firstName,String lastName, String email) {
+    public String getPhone() {
+		return phone;
+	}
+
+	public void setPhone(String phone) {
+		this.phone = phone;
+	}
+
+	public CustomerResponse(Long id, String firstName,String lastName, String email, String phone) {
         this.id = id;
         this.firstName = firstName;
         this.lastName = lastName;
         this.lastName = lastName;
         this.email = email;
+        this.phone = phone;
     }
 
     public Long getId() {
@@ -59,7 +69,8 @@ public class CustomerResponse {
             customer.getId(),
             customer.getFirstName(),
             customer.getLastName(),
-            customer.getEmail()
+            customer.getEmail(),
+            customer.getPhone()
         );
     }
 }

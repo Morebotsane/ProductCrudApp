@@ -2,6 +2,7 @@ package com.example.resources;
 
 import com.example.dto.OrderResponse;
 import com.example.dto.UpdateStatusRequest;
+import com.example.entities.OrderStatus;
 import com.example.services.OrderService;
 
 import jakarta.inject.Inject;
@@ -18,14 +19,18 @@ public class OrderResource {
     @Inject
     private OrderService orderService;
 
-    // Get all orders as DTOs
+    // -------------------------
+    // GET ALL ORDERS
+    // -------------------------
     @GET
     public Response getAllOrders() {
         List<OrderResponse> orders = orderService.getAllOrderDtos();
         return Response.ok(orders).build();
     }
 
-    // Get a single order by ID as a DTO
+    // -------------------------
+    // GET ORDER BY ID
+    // -------------------------
     @GET
     @Path("/{orderId}")
     public Response getOrderById(@PathParam("orderId") Long orderId) {
@@ -37,7 +42,9 @@ public class OrderResource {
         }
     }
 
-    // Create order from cart, returning DTO
+    // -------------------------
+    // CREATE ORDER FROM CART
+    // -------------------------
     @POST
     @Path("/from-cart/{cartId}")
     public Response createOrderFromCart(@PathParam("cartId") Long cartId) {
@@ -52,13 +59,25 @@ public class OrderResource {
         }
     }
 
-    // Update order status, returning DTO
+    // -------------------------
+    // UPDATE ORDER STATUS
+    // -------------------------
     @PUT
     @Path("/{orderId}/status")
     public Response updateOrderStatus(@PathParam("orderId") Long orderId, UpdateStatusRequest request) {
         try {
-            OrderResponse updatedOrder = orderService.updateStatusDto(orderId, request.getStatus());
+            // Safely convert string → enum
+            OrderStatus newStatus;
+            try {
+                newStatus = OrderStatus.valueOf(request.getStatus().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                               .entity("Invalid order status: " + request.getStatus()).build();
+            }
+
+            OrderResponse updatedOrder = orderService.updateStatusDto(orderId, newStatus);
             return Response.ok(updatedOrder).build();
+
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(e.getMessage()).build();
         } catch (Exception e) {
@@ -67,7 +86,9 @@ public class OrderResource {
         }
     }
 
-    // Get orders for a customer as DTOs
+    // -------------------------
+    // GET ORDERS BY CUSTOMER
+    // -------------------------
     @GET
     @Path("/customer/{customerId}")
     public Response getOrdersByCustomer(@PathParam("customerId") Long customerId) {
@@ -80,6 +101,3 @@ public class OrderResource {
         }
     }
 }
-
-
-

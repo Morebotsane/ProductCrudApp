@@ -19,6 +19,8 @@ public class ApplicationConfig extends Application {
         classes.add(CartResource.class);//this is the cart resource class
         classes.add(OrderResource.class);//this is the order resource class
         classes.add(CustomerResource.class);//this is the customer resource  
+        classes.add(CustomerAddressResource.class);
+        classes.add(PaymentResource.class);
         
         return classes;
     }

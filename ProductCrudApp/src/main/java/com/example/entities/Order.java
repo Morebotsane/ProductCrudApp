@@ -14,7 +14,10 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String status; // e.g. NEW, PAID, SHIPPED
+    
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;
+    //private String status; // e.g. NEW, PAID, SHIPPED
 
     private LocalDateTime orderDate;
 
@@ -31,8 +34,30 @@ public class Order {
     @ManyToOne
     @JoinColumn(name = "customer_id")
     private Customer customer;
+    
+    @Column(precision = 19, scale = 4)
+    private BigDecimal subtotal;
 
-    public Order() {}
+    @Column(precision = 19, scale = 4)
+    private BigDecimal vatTotal;
+    
+    @Embedded
+    private AddressSnapshot shippingAddress;
+    
+    private LocalDateTime createdAt;
+    
+    public LocalDateTime getCreatedAt() {
+		return createdAt;
+	}
+
+	public void setCreatedAt(LocalDateTime createdAt) {
+		this.createdAt = createdAt;
+	}
+
+	public Order(){
+    	this.orderDate = LocalDateTime.now();
+    	this.status = OrderStatus.NEW;
+    }
 
     public void addItem(OrderItem item) {
         items.add(item);
@@ -43,20 +68,36 @@ public class Order {
         return id;
     }
 
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-    
-    // setter for testing only this was done for unit testing
+    //this was done for unit testing
     public void setId(Long id) {
         this.id = id;
     }
 
-    public LocalDateTime getOrderDate() {
+    public OrderStatus getStatus() {
+		return status;
+	}
+
+	public void setStatus(OrderStatus status) {
+		this.status = status;
+	}
+
+	public BigDecimal getSubtotal() {
+		return subtotal;
+	}
+
+	public void setSubtotal(BigDecimal subtotal) {
+		this.subtotal = subtotal;
+	}
+
+	public BigDecimal getVatTotal() {
+		return vatTotal;
+	}
+
+	public void setVatTotal(BigDecimal vatTotal) {
+		this.vatTotal = vatTotal;
+	}
+
+	public LocalDateTime getOrderDate() {
         return orderDate;
     }
 
@@ -95,6 +136,12 @@ public class Order {
     public Customer getCustomer() {
     	return customer;
     }
+    
+    public AddressSnapshot getShippingAddress() { 
+    	return shippingAddress; 
+    }
+    
+    public void setShippingAddress(AddressSnapshot shippingAddress) { 
+    	this.shippingAddress = shippingAddress; 
+    }
 }
-
-

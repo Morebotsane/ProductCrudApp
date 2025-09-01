@@ -5,71 +5,42 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class CartItemResponse {
-    private Long id;
-    private Long productId;
-    private String productName;
-    private int quantity;
-    private BigDecimal unitPrice;
-    private LocalDateTime dateAdded;
+
+    private final Long id;
+    private final Long productId;
+    private final String productName;
+    private final int quantity;
+    private final BigDecimal unitPrice;
+    private final LocalDateTime dateAdded;
+
+    private CartItemResponse(Long id, Long productId, String productName,
+                             int quantity, BigDecimal unitPrice, LocalDateTime dateAdded) {
+        this.id = id;
+        this.productId = productId;
+        this.productName = productName;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+        this.dateAdded = dateAdded;
+    }
 
     public static CartItemResponse fromEntity(CartItem item) {
-        CartItemResponse response = new CartItemResponse();
-        response.id = item.getId();
-        response.productId = item.getProduct().getId();
-        response.productName = item.getProduct().getName();
-        response.quantity = item.getQuantity();
-        response.unitPrice = item.getProduct().getPrice();
-        response.dateAdded = item.getDateAdded();
-        return response;
+        return new CartItemResponse(
+            item.getId(),
+            item.getProduct().getId(),
+            item.getProduct().getName(),
+            item.getQuantity(),
+            item.getProduct().getPrice(),
+            item.getDateAdded()
+        );
     }
-    
-    //getters and setters
-	public Long getId() {
-		return id;
-	}
 
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public Long getProductId() {
-		return productId;
-	}
-
-	public void setProductId(Long productId) {
-		this.productId = productId;
-	}
-
-	public String getProductName() {
-		return productName;
-	}
-
-	public void setProductName(String productName) {
-		this.productName = productName;
-	}
-
-	public int getQuantity() {
-		return quantity;
-	}
-
-	public void setQuantity(int quantity) {
-		this.quantity = quantity;
-	}
-
-	public BigDecimal getUnitPrice() {
-		return unitPrice;
-	}
-
-	public void setUnitPrice(BigDecimal unitPrice) {
-		this.unitPrice = unitPrice;
-	}
-
-	public LocalDateTime getDateAdded() {
-		return dateAdded;
-	}
-
-	public void setDateAdded(LocalDateTime dateAdded) {
-		this.dateAdded = dateAdded;
-	}
+    // Getters
+    public Long getId() { return id; }
+    public Long getProductId() { return productId; }
+    public String getProductName() { return productName; }
+    public int getQuantity() { return quantity; }
+    public BigDecimal getUnitPrice() { return unitPrice; }
+    public LocalDateTime getDateAdded() { return dateAdded; }
 }
+
 

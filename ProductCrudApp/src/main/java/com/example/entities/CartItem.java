@@ -26,12 +26,14 @@ public class CartItem {
     @Column(nullable = false)
     private int quantity;
     
-    @Column(name = "date_added")
+    @Column(name = "date_added", nullable = false, updatable = false)
     private LocalDateTime dateAdded;
     
     @PrePersist
     public void onCreate() {
-        this.dateAdded = LocalDateTime.now();
+        if(this.dateAdded==null) {
+        	this.dateAdded = LocalDateTime.now();
+        }
     }
 
     public CartItem() {
@@ -41,7 +43,7 @@ public class CartItem {
     public CartItem(Product product, int quantity) {
         this.product = product;
         this.quantity = quantity;
-        this.dateAdded = LocalDateTime.now();
+       // this.dateAdded = LocalDateTime.now();
     }
 
     public BigDecimal getSubtotal() {

@@ -1,175 +1,223 @@
 package com.example.services;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-import com.example.dao.CartDAO;
-import com.example.dao.OrderDAO;
-import com.example.dao.ProductDAO;
-import com.example.entities.Cart;
-import com.example.entities.CartItem;
-import com.example.entities.Customer;
-import com.example.entities.Order;
-import com.example.entities.Product;
-import com.example.entities.OrderItem;
+import com.example.dao.*;
+import com.example.dto.OrderResponse;
+import com.example.entities.*;
+import com.example.entities.AddressType;
+import com.example.entities.CartStatus;
+import com.example.entities.OrderStatus;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class OrderServiceTest {
-
-    @Mock
-    private OrderDAO orderDAO;
-
-    @Mock
-    private CartDAO cartDAO;
-
-    @Mock
-    private ProductDAO productDAO;
 
     @InjectMocks
     private OrderService orderService;
 
+    @Mock
+    private CartDAO cartDAO;
+    @Mock
+    private ProductDAO productDAO;
+    @Mock
+    private OrderDAO orderDAO;
+    @Mock
+    private AddressDAO addressDAO;
+    @Mock
+    private PaymentDAO paymentDAO;
+    @Mock
+    private OrderStatusHistoryDAO orderStatusHistoryDAO;
+
+    private Customer customer;
+    private Cart cart;
+    private Address defaultAddress;
+    private Product product;
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-    }
 
-    // --- createOrderFromCartDto ---
+        customer = new Customer("John", "Doe", "john@example.com", "1234567890");
+        customer.setId(1L);
+
+        defaultAddress = new Address();
+        defaultAddress.setId(100L);
+        defaultAddress.setLine1("123 Main St");
+        defaultAddress.setCity("Metropolis");
+        defaultAddress.setPostalCode("12345");
+        defaultAddress.setCountry("USA");
+        defaultAddress.setType(AddressType.SHIPPING);
+        defaultAddress.setDefault(true);
+        defaultAddress.setCustomer(customer);
+
+        product = new Product();
+        product.setId(10L);
+        product.setName("Laptop");
+        product.setPrice(new BigDecimal("1000"));
+        product.setStock(5);
+
+        cart = new Cart();
+        cart.setId(1L);
+        cart.setCustomer(customer);
+        cart.setStatus(CartStatus.NEW);
+        CartItem item = new CartItem();
+        item.setProduct(product);
+        item.setQuantity(2);
+        item.setCart(cart);
+        cart.getItems().add(item);
+    }
 
     @Test
     void testCreateOrderFromCart_Success() {
-        Customer customer = new Customer();
-        customer.setId(1L);
-
-        Product product = new Product();
-        product.setId(1L);
-        product.setPrice(new BigDecimal("100.00"));
-        product.setStock(1);
-
-        CartItem item = new CartItem(product, 1);
-
-        Cart cart = new Cart();
-        cart.setId(1L);
-        cart.setCustomer(customer);
-        cart.setItems(new ArrayList<>());
-        cart.getItems().add(item);
-        cart.setStatus("NEW");
-
         when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
-        when(productDAO.findById(Product.class, 1L)).thenReturn(product);
-
-        // Mock orderDAO save to do nothing
+        when(productDAO.findById(Product.class, 10L)).thenReturn(product);
+        when(addressDAO.findDefaultShippingByCustomer(customer)).thenReturn(Optional.of(defaultAddress));
         doNothing().when(orderDAO).save(any(Order.class));
-        doNothing().when(cartDAO).update(any(Cart.class));
-        doNothing().when(productDAO).update(any(Product.class));
+        doNothing().when(cartDAO).update(cart);
+        doNothing().when(productDAO).update(product);
 
-        // Act
-        orderService.createOrderFromCartDto(1L);
+        OrderResponse response = orderService.createOrderFromCartDto(1L);
 
-        // Assert entity-level effects
-        assertEquals("CHECKED_OUT", cart.getStatus());
-        assertEquals(0, product.getStock().compareTo(0)); // stock deducted
-        assertEquals(1, cart.getItems().get(0).getQuantity()); // cart item quantity remains
+        assertNotNull(response);
+        assertEquals(CartStatus.CHECKED_OUT, cart.getStatus());
+        assertEquals(3, product.getStock());
+        assertNotNull(response.getShippingAddress());
+        assertEquals("123 Main St", response.getShippingAddress().getLine1());
+
+        verify(orderDAO).save(any(Order.class));
+        verify(cartDAO).update(cart);
+        verify(productDAO).update(product);
     }
 
     @Test
-    void testCreateOrderFromCart_EmptyCart_Throws() {
-        Cart cart = new Cart();
-        cart.setId(1L);
-        cart.setItems(new ArrayList<>());
-        cart.setStatus("NEW");
-
+    void testCreateOrder_EmptyCart_Throws() {
+        cart.getItems().clear();
         when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
 
-        Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                orderService.createOrderFromCartDto(1L)
-        );
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> orderService.createOrderFromCartDto(1L));
         assertEquals("Cannot create order from empty cart", ex.getMessage());
+    }
+
+    @Test
+    void testCreateOrder_AlreadyCheckedOut_Throws() {
+        cart.setStatus(CartStatus.CHECKED_OUT);
+        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
+
+        Exception ex = assertThrows(IllegalStateException.class,
+                () -> orderService.createOrderFromCartDto(1L));
+        assertEquals("Cart already checked out", ex.getMessage());
+    }
+
+    @Test
+    void testCreateOrder_NoDefaultShippingAddress_Throws() {
+        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
+        when(addressDAO.findDefaultShippingByCustomer(customer)).thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> orderService.createOrderFromCartDto(1L));
+        assertEquals("Customer has no default shipping address", ex.getMessage());
+    }
+
+    @Test
+    void testCreateOrder_InsufficientStock_Throws() {
+        product.setStock(1); // less than cart quantity
+        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
+        when(productDAO.findById(Product.class, 10L)).thenReturn(product);
+        when(addressDAO.findDefaultShippingByCustomer(customer)).thenReturn(Optional.of(defaultAddress));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> orderService.createOrderFromCartDto(1L));
+        assertEquals("Insufficient stock for product: Laptop", ex.getMessage());
     }
 
     @Test
     void testUpdateStatus_Success() {
         Order order = new Order();
         order.setId(1L);
-        order.setStatus("NEW");
+        order.setStatus(OrderStatus.PAID); // initial status
 
         when(orderDAO.findById(Order.class, 1L)).thenReturn(order);
-        doNothing().when(orderDAO).update(any(Order.class));
 
-        orderService.updateStatusDto(1L, "SHIPPED");
+        OrderResponse response = orderService.updateStatusDto(1L, OrderStatus.SHIPPED);
 
-        assertEquals("SHIPPED", order.getStatus());
+        assertEquals(OrderStatus.SHIPPED, order.getStatus());
+        verify(orderDAO).update(order);
+        assertNotNull(response);
     }
 
     @Test
     void testUpdateStatus_OrderNotFound_Throws() {
-        when(orderDAO.findById(Order.class, 1L)).thenReturn(null);
+        when(orderDAO.findById(Order.class, 99L)).thenReturn(null);
 
-        Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                orderService.updateStatusDto(1L, "SHIPPED")
-        );
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> orderService.updateStatusDto(99L, OrderStatus.SHIPPED));
         assertEquals("Order not found", ex.getMessage());
     }
 
     @Test
-    void testGetOrder_Success() {
+    void testGetOrderDto_Success() {
         Order order = new Order();
         order.setId(1L);
-        order.setTotal(new BigDecimal("200.00"));
-
         when(orderDAO.findById(Order.class, 1L)).thenReturn(order);
 
-        // just check the entity fields via DTO mapping
-        assertEquals(0, new BigDecimal("200.00").compareTo(orderService.getOrderDto(1L).getTotal()));
+        OrderResponse response = orderService.getOrderDto(1L);
+        assertNotNull(response);
     }
 
     @Test
-    void testGetOrder_OrderNotFound_Throws() {
-        when(orderDAO.findById(Order.class, 1L)).thenReturn(null);
+    void testGetOrderDto_NotFound_Throws() {
+        when(orderDAO.findById(Order.class, 99L)).thenReturn(null);
 
-        Exception ex = assertThrows(IllegalArgumentException.class, () ->
-                orderService.getOrderDto(1L)
-        );
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> orderService.getOrderDto(99L));
         assertEquals("Order not found", ex.getMessage());
     }
 
     @Test
-    void testGetAllOrders_Success() {
+    void testGetOrdersByCustomerDto() {
+        Customer otherCustomer = new Customer("Jane", "Doe", "jane@example.com", "9999999999");
+        otherCustomer.setId(2L);
+
         Order order1 = new Order();
+        order1.setId(1L);
+        order1.setCustomer(customer);
+
         Order order2 = new Order();
-        List<Order> orders = List.of(order1, order2);
+        order2.setId(2L);
+        order2.setCustomer(customer);
 
-        when(orderDAO.findAll(Order.class)).thenReturn(orders);
+        Order order3 = new Order();
+        order3.setId(3L);
+        order3.setCustomer(otherCustomer);
 
-        assertEquals(2, orderService.getAllOrderDtos().size());
+        when(orderDAO.findAll(Order.class)).thenReturn(Arrays.asList(order1, order2, order3));
+
+        var responses = orderService.getOrdersByCustomerDto(customer.getId());
+
+        assertEquals(2, responses.size());
+        assertTrue(responses.stream().allMatch(r -> r.getCustomerId().equals(customer.getId())));
     }
 
     @Test
-    void testGetOrdersByCustomer_Success() {
-        Customer customer = new Customer();
-        customer.setId(1L);
-
+    void testGetAllOrderDtos() {
         Order order1 = new Order();
-        order1.setCustomer(customer);
+        order1.setId(1L);
         Order order2 = new Order();
-        order2.setCustomer(customer);
+        order2.setId(2L);
 
-        List<Order> orders = List.of(order1, order2);
+        when(orderDAO.findAll(Order.class)).thenReturn(Arrays.asList(order1, order2));
 
-        when(orderDAO.findAll(Order.class)).thenReturn(orders);
+        var responses = orderService.getAllOrderDtos();
 
-        List<?> result = orderService.getOrdersByCustomerDto(1L);
-
-        assertEquals(2, result.size());
+        assertEquals(2, responses.size());
     }
 }
-

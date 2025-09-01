@@ -12,7 +12,8 @@ public class CustomerMapper {
                 entity.getId(),
                 entity.getFirstName(),
                 entity.getLastName(),
-                entity.getEmail()
+                entity.getEmail(),
+                entity.getPhone()
         );
     }
 
@@ -22,6 +23,7 @@ public class CustomerMapper {
         customer.setFirstName(request.getFirstName());
         customer.setLastName(request.getLastName());
         customer.setEmail(request.getEmail());
+        customer.setPhone(request.getPhone());
         return customer;
     }
 
@@ -30,5 +32,6 @@ public class CustomerMapper {
         entity.setFirstName(request.getFirstName());
         entity.setLastName(request.getLastName());
         entity.setEmail(request.getEmail());
+        entity.setPhone(request.getPhone());
     }
 }

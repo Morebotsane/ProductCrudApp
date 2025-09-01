@@ -1,62 +1,42 @@
+
 package com.example.dto;
 
+import com.example.entities.CartStatus;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class CartResponse {
-    private Long id;
-    private String status;
-    private List<CartItemResponse> items; // Use DTO, not entity
-    private BigDecimal total;
-    private BigDecimal totalWithVAT;
 
-    public CartResponse() {}
+    private final Long id;
+    private final CartStatus status;
+    private final List<CartItemResponse> items;
+    private final BigDecimal total;
+    private final BigDecimal totalWithVAT;
+    private final LocalDateTime createdAt;
+    private final LocalDateTime updatedAt;
+    private final LocalDateTime expiresAt;
 
-    public CartResponse(Long id, String status, List<CartItemResponse> items,
-                        BigDecimal total, BigDecimal totalWithVAT) {
+    public CartResponse(Long id, CartStatus status, List<CartItemResponse> items,
+                        BigDecimal total, BigDecimal totalWithVAT,
+                        LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime expiresAt) {
         this.id = id;
         this.status = status;
         this.items = items;
         this.total = total;
         this.totalWithVAT = totalWithVAT;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.expiresAt = expiresAt;
     }
 
-    // Getters and setters
-    public Long getId() { 
-    	return id; 
-    }
-    
-    public void setId(Long id) { 
-    	this.id = id; 
-    }
-    
-    public String getStatus() { 
-    	return status;
-    }
-    
-    public void setStatus(String status) { 
-    	this.status = status;
-    }
-    
-    public List<CartItemResponse> getItems() { 
-    	return items; 
-    }
-    
-    public void setItems(List<CartItemResponse> items) { this.items = items; }
-    
-    public BigDecimal getTotal() { 
-    	return total;
-    }
-    
-    public void setTotal(BigDecimal total) { 
-    	this.total = total; 
-    }
-    
-    public BigDecimal getTotalWithVAT() { 
-    	return totalWithVAT; 
-    }
-    
-    public void setTotalWithVAT(BigDecimal totalWithVAT) { 
-    	this.totalWithVAT = totalWithVAT;
-    }
+    // Getters
+    public Long getId() { return id; }
+    public CartStatus getStatus() { return status; }
+    public List<CartItemResponse> getItems() { return items; }
+    public BigDecimal getTotal() { return total; }
+    public BigDecimal getTotalWithVAT() { return totalWithVAT; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public LocalDateTime getExpiresAt() { return expiresAt; }
 }

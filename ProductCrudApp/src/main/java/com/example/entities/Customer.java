@@ -29,6 +29,9 @@ public class Customer {
     
     @Column(nullable = false)
     private String phone;
+    
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Address> addresses = new ArrayList<>();
 
     // One customer can have multiple carts
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -41,10 +44,11 @@ public class Customer {
     public Customer() {}
 
     // Convenience constructor
-    public Customer(String firstName,String lastName,String email) {
+    public Customer(String firstName,String lastName,String email,String phone) {
     	this.firstName = firstName;
     	this.lastName = lastName;
     	this.email = email;
+    	this.phone = phone;
     }
     
     // --- getters and setters ---
@@ -95,6 +99,10 @@ public class Customer {
     
     public List<Order> getOrders() {
     	return orders; 
+    }
+    
+    public List<Address> getAddresses() {
+        return addresses;
     }
 }
 

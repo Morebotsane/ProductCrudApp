@@ -1,26 +1,25 @@
 package com.example.services;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
 import com.example.dao.CartDAO;
 import com.example.dao.CustomerDAO;
 import com.example.dao.ProductDAO;
-import com.example.entities.Cart;
-import com.example.entities.CartItem;
-import com.example.entities.Customer;
-import com.example.entities.Product;
-
-import java.math.BigDecimal;
-import java.util.ArrayList;
+import com.example.entities.*;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class CartServiceTest {
+
+    @InjectMocks
+    private CartService cartService;
 
     @Mock
     private CartDAO cartDAO;
@@ -31,261 +30,239 @@ class CartServiceTest {
     @Mock
     private CustomerDAO customerDAO;
 
-    @InjectMocks
-    private CartService cartService;
+    private AutoCloseable closeable;
+
+    private Customer customer;
+    private Product product;
+    private Cart cart;
 
     @BeforeEach
-    public void setup() {
-        MockitoAnnotations.openMocks(this);
-    }
+    void setUp() {
+        closeable = MockitoAnnotations.openMocks(this);
 
-    // --- createCartForCustomer ---
-
-    @Test
-    void testCreateCartForCustomer_Success() {
-        Customer customer = new Customer();
+        customer = new Customer();
         customer.setId(1L);
 
+        product = new Product();
+        product.setId(100L);
+        product.setName("Laptop");
+        product.setStock(10);
+        product.setPrice(new BigDecimal("1000"));
+
+        cart = new Cart();
+        cart.setId(200L);
+        cart.setCustomer(customer);
+        cart.setStatus(CartStatus.NEW);
+        cart.setItems(new ArrayList<>());
+        cart.setCreatedAt(LocalDateTime.now());
+        cart.setUpdatedAt(LocalDateTime.now());
+        cart.setExpiresAt(LocalDateTime.now().plusHours(2));
+    }
+
+    // -------------------------
+    // getOrCreateActiveCart
+    // -------------------------
+
+    @Test
+    void testGetOrCreateActiveCart_ReturnsExisting() {
         when(customerDAO.findById(Customer.class, 1L)).thenReturn(customer);
+        when(cartDAO.findActiveCartByCustomerId(1L)).thenReturn(cart);
 
-        Cart cart = cartService.createCartForCustomer(1L);
+        Cart result = cartService.getOrCreateActiveCart(1L);
 
-        assertNotNull(cart);
-        assertEquals(customer, cart.getCustomer());
-        verify(cartDAO).save(cart);
+        assertEquals(cart, result);
+        verify(cartDAO, never()).save(any());
     }
 
     @Test
-    void testCreateCartForCustomer_CustomerNotFound_Throws() {
+    void testGetOrCreateActiveCart_CreatesNew() {
+        when(customerDAO.findById(Customer.class, 1L)).thenReturn(customer);
+        when(cartDAO.findActiveCartByCustomerId(1L)).thenReturn(null);
+
+        Cart result = cartService.getOrCreateActiveCart(1L);
+
+        assertEquals(CartStatus.NEW, result.getStatus());
+        verify(cartDAO).save(any(Cart.class));
+    }
+
+    @Test
+    void testGetOrCreateActiveCart_CustomerNotFound() {
         when(customerDAO.findById(Customer.class, 99L)).thenReturn(null);
 
-        Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> cartService.createCartForCustomer(99L));
-
-        assertEquals("Customer not found", ex.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> cartService.getOrCreateActiveCart(99L));
     }
 
-    // --- addProduct ---
+    // -------------------------
+    // addProduct
+    // -------------------------
 
     @Test
-    void testAddProduct_NewProduct_Success() {
-        Cart cart = new Cart();
-        cart.setItems(new ArrayList<>());
+    void testAddProduct_AddsNewItem() {
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
+        when(productDAO.findById(Product.class, 100L)).thenReturn(product);
 
-        Product product = new Product();
-        product.setId(1L);
-        product.setPrice(new BigDecimal("10.00"));
-        product.setStock(10); // <-- fix stock
+        Cart result = cartService.addProduct(200L, 100L, 2);
 
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
-        when(productDAO.findById(Product.class, 1L)).thenReturn(product);
-
-        Cart updatedCart = cartService.addProduct(1L, 1L, 2);
-
-        assertEquals(1, updatedCart.getItems().size());
-        assertEquals(2, updatedCart.getItems().get(0).getQuantity());
+        assertEquals(1, result.getItems().size());
+        assertEquals(2, result.getItems().get(0).getQuantity());
         verify(cartDAO).update(cart);
     }
 
     @Test
-    void testAddProduct_ExistingProduct_IncreasesQuantity() {
-        Product product = new Product();
-        product.setId(1L);
-        product.setPrice(new BigDecimal("10.00"));
-        product.setStock(10); // <-- fix stock
-
-        CartItem existingItem = new CartItem(product, 2);
-
-        Cart cart = new Cart();
-        ArrayList<CartItem> items = new ArrayList<>();
-        items.add(existingItem);
-        cart.setItems(items);
-
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
-        when(productDAO.findById(Product.class, 1L)).thenReturn(product);
-
-        Cart updatedCart = cartService.addProduct(1L, 1L, 3);
-
-        assertEquals(5, updatedCart.getItems().get(0).getQuantity());
-        verify(cartDAO).update(cart);
-    }
-
-    @Test
-    void testAddProduct_CartNotFound_Throws() {
-        when(cartDAO.findById(Cart.class, 99L)).thenReturn(null);
-
-        Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> cartService.addProduct(99L, 1L, 1));
-
-        assertEquals("Cart not found", ex.getMessage());
-    }
-
-    @Test
-    void testAddProduct_ProductNotFound_Throws() {
-        Cart cart = new Cart();
-        cart.setItems(new ArrayList<>());
-
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
-        when(productDAO.findById(Product.class, 99L)).thenReturn(null);
-
-        Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> cartService.addProduct(1L, 99L, 1));
-
-        assertEquals("Product not found", ex.getMessage());
-    }
-
-    @Test
-    void testAddProduct_InvalidQuantity_Throws() {
-        Cart cart = new Cart();
-        cart.setItems(new ArrayList<>());
-
-        Product product = new Product();
-        product.setId(1L);
-        product.setPrice(new BigDecimal("10.00"));
-        product.setStock(10); // <-- fix stock
-
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
-        when(productDAO.findById(Product.class, 1L)).thenReturn(product);
-
-        Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> cartService.addProduct(1L, 1L, 0));
-
-        assertEquals("Quantity must be greater than zero", ex.getMessage());
-    }
-
-    // --- removeProduct ---
-
-    @Test
-    void testRemoveProduct_Success() {
-        Product product = new Product();
-        product.setId(1L);
-
+    void testAddProduct_IncrementsExistingItem() {
         CartItem item = new CartItem(product, 2);
+        item.setCart(cart);
+        cart.getItems().add(item);
 
-        Cart cart = new Cart();
-        ArrayList<CartItem> items = new ArrayList<>();
-        items.add(item);
-        cart.setItems(items);
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
+        when(productDAO.findById(Product.class, 100L)).thenReturn(product);
 
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
+        Cart result = cartService.addProduct(200L, 100L, 3);
 
-        Cart updatedCart = cartService.removeProduct(1L, 1L);
+        assertEquals(1, result.getItems().size());
+        assertEquals(5, result.getItems().get(0).getQuantity());
+    }
 
-        assertTrue(updatedCart.getItems().isEmpty());
+    @Test
+    void testAddProduct_ProductNotFound() {
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
+        when(productDAO.findById(Product.class, 999L)).thenReturn(null);
+
+        assertThrows(IllegalArgumentException.class, () -> cartService.addProduct(200L, 999L, 1));
+    }
+
+    @Test
+    void testAddProduct_InsufficientStock() {
+        product.setStock(1);
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
+        when(productDAO.findById(Product.class, 100L)).thenReturn(product);
+
+        assertThrows(IllegalArgumentException.class, () -> cartService.addProduct(200L, 100L, 5));
+    }
+
+    // -------------------------
+    // removeProduct
+    // -------------------------
+
+    @Test
+    void testRemoveProduct_RemovesItem() {
+        CartItem item = new CartItem(product, 1);
+        item.setCart(cart);
+        cart.getItems().add(item);
+
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
+
+        Cart result = cartService.removeProduct(200L, 100L);
+
+        assertTrue(result.getItems().isEmpty());
         verify(cartDAO).update(cart);
     }
 
     @Test
-    void testRemoveProduct_ProductNotFound_Throws() {
-        Cart cart = new Cart();
-        cart.setItems(new ArrayList<>());
+    void testRemoveProduct_ProductNotFound() {
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
 
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
-
-        Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> cartService.removeProduct(1L, 1L));
-
-        assertEquals("Product not found in cart", ex.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> cartService.removeProduct(200L, 999L));
     }
 
-    // --- getTotal / getTotalWithVAT ---
+    // -------------------------
+    // decrementProductQuantity
+    // -------------------------
 
     @Test
-    void testGetTotal() {
-        Product product1 = new Product();
-        product1.setPrice(new BigDecimal("10.00"));
-        product1.setStock(5); // fix stock
-
-        Product product2 = new Product();
-        product2.setPrice(new BigDecimal("20.00"));
-        product2.setStock(5); // fix stock
-
-        CartItem item1 = new CartItem(product1, 2);
-        CartItem item2 = new CartItem(product2, 1);
-
-        Cart cart = new Cart();
-        cart.setItems(new ArrayList<>());
-        cart.getItems().add(item1);
-        cart.getItems().add(item2);
-
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
-
-        BigDecimal total = cartService.getTotal(1L);
-
-        assertEquals(new BigDecimal("40.00"), total);
-    }
-
-    @Test
-    void testGetTotalWithVAT() {
-        Product product = new Product();
-        product.setPrice(new BigDecimal("100.00"));
-        product.setStock(5); // fix stock
-
-        CartItem item = new CartItem(product, 1);
-
-        Cart cart = new Cart();
-        cart.setItems(new ArrayList<>());
-        cart.getItems().add(item);
-
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
-
-        BigDecimal expected = new BigDecimal("115.00"); // 100 + 15% VAT
-        BigDecimal actual = cartService.getTotalWithVAT(1L);
-
-        assertEquals(0, expected.compareTo(actual));
-    }
-
-    // --- decrementProductQuantity ---
-
-    @Test
-    void testDecrementProductQuantity_DecreaseQuantity() {
-        Product product = new Product();
-        product.setId(1L);
-        product.setStock(5); // fix stock
-
+    void testDecrementProductQuantity_Decrements() {
         CartItem item = new CartItem(product, 3);
-
-        Cart cart = new Cart();
-        cart.setItems(new ArrayList<>());
+        item.setCart(cart);
         cart.getItems().add(item);
 
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
 
-        Cart updatedCart = cartService.decrementProductQuantity(1L, 1L);
+        Cart result = cartService.decrementProductQuantity(200L, 100L);
 
-        assertEquals(2, updatedCart.getItems().get(0).getQuantity());
+        assertEquals(2, result.getItems().get(0).getQuantity());
+        verify(cartDAO).update(cart);
     }
 
     @Test
-    void testDecrementProductQuantity_RemoveItem() {
-        Product product = new Product();
-        product.setId(1L);
-        product.setStock(5); // fix stock
-
+    void testDecrementProductQuantity_RemovesWhenQuantityOne() {
         CartItem item = new CartItem(product, 1);
-
-        Cart cart = new Cart();
-        cart.setItems(new ArrayList<>());
+        item.setCart(cart);
         cart.getItems().add(item);
 
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
 
-        Cart updatedCart = cartService.decrementProductQuantity(1L, 1L);
+        Cart result = cartService.decrementProductQuantity(200L, 100L);
 
-        assertTrue(updatedCart.getItems().isEmpty());
+        assertTrue(result.getItems().isEmpty());
+        verify(cartDAO).update(cart);
     }
 
     @Test
-    void testDecrementProductQuantity_ProductNotFound_Throws() {
-        Cart cart = new Cart();
-        cart.setItems(new ArrayList<>());
+    void testDecrementProductQuantity_ProductNotFound() {
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
 
-        when(cartDAO.findById(Cart.class, 1L)).thenReturn(cart);
+        assertThrows(IllegalArgumentException.class, () -> cartService.decrementProductQuantity(200L, 100L));
+    }
 
-        Exception ex = assertThrows(IllegalArgumentException.class,
-                () -> cartService.decrementProductQuantity(1L, 1L));
+    // -------------------------
+    // clearCart
+    // -------------------------
 
-        assertEquals("Product not found in cart", ex.getMessage());
+    @Test
+    void testClearCart() {
+        cart.getItems().add(new CartItem(product, 2));
+        when(cartDAO.findById(Cart.class, 200L)).thenReturn(cart);
+
+        Cart result = cartService.clearCart(200L);
+
+        assertTrue(result.getItems().isEmpty());
+        verify(cartDAO).update(cart);
+    }
+
+    // -------------------------
+    // totals
+    // -------------------------
+
+    @Test
+    void testGetTotalAndVAT() {
+        CartItem item = new CartItem(product, 2); // 2 x 1000
+        item.setCart(cart);
+        cart.getItems().add(item);
+
+        BigDecimal total = cartService.getTotal(cart);
+        BigDecimal totalWithVAT = cartService.getTotalWithVAT(cart);
+
+        assertEquals(new BigDecimal("2000"), total);
+        assertEquals(new BigDecimal("2300.00"), totalWithVAT); // 15% VAT
+    }
+
+    // -------------------------
+    // expireCarts
+    // -------------------------
+
+    @Test
+    void testExpireCarts_SetsExpired() {
+        cart.setExpiresAt(LocalDateTime.now().minusMinutes(10));
+        List<Cart> expired = List.of(cart);
+
+        when(cartDAO.findByStatusAndExpiresBefore(eq(CartStatus.NEW), any(LocalDateTime.class)))
+                .thenReturn(expired);
+
+        cartService.expireCarts();
+
+        assertEquals(CartStatus.EXPIRED, cart.getStatus());
+        verify(cartDAO).updateAll(expired);
+    }
+
+    @Test
+    void testExpireCarts_NoExpired() {
+        when(cartDAO.findByStatusAndExpiresBefore(eq(CartStatus.NEW), any(LocalDateTime.class)))
+                .thenReturn(Collections.emptyList());
+
+        cartService.expireCarts();
+
+        verify(cartDAO, never()).updateAll(anyList());
     }
 }
+
 

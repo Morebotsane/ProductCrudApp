@@ -8,16 +8,26 @@ public class CustomerRequest {
     private String firstName;
     private String lastName;
     private String email;
+    private String phone;
 
     public CustomerRequest() {}
 
-    public CustomerRequest(String firstName,String lastName, String email) {
+    public CustomerRequest(String firstName,String lastName, String email, String phone) {
         this.firstName = firstName;
         this.lastName = lastName;       
         this.email = email;
+        this.phone = phone;
     }
+    
+    public String getPhone() {
+		return phone;
+	}
 
-    public String getLastName() {
+	public void setPhone(String phone) {
+		this.phone = phone;
+	}
+
+	public String getLastName() {
         return lastName;
     }
     public void setLastName(String lastName) {

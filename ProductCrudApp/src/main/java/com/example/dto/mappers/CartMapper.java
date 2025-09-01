@@ -3,8 +3,7 @@ package com.example.dto.mappers;
 import com.example.dto.CartItemResponse;
 import com.example.dto.CartResponse;
 import com.example.entities.Cart;
-//import com.example.entities.CartItem;
-import com.example.services.CartService; // we’ll need it for totals
+import com.example.services.CartService;
 
 import jakarta.inject.Inject;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -24,11 +23,14 @@ public class CartMapper {
                     .toList();
 
         return new CartResponse(
-                cart.getId(),
-                cart.getStatus(),
-                itemResponses,
-                cartService.getTotal(cart),
-                cartService.getTotalWithVAT(cart)
+            cart.getId(),
+            cart.getStatus(),
+            itemResponses,
+            cartService.getTotal(cart),
+            cartService.getTotalWithVAT(cart),
+            cart.getCreatedAt(),
+            cart.getUpdatedAt(),
+            cart.getExpiresAt()
         );
     }
 }

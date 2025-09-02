@@ -18,12 +18,14 @@ public class OrderResponse {
     private AddressSnapshotResponse shippingAddress;
     private List<PaymentDTO> payments;
     private List<OrderStatusHistoryDTO> history;
+    private ShippingDTO shipment; 
 
-    // --- Full constructor (needed for mapOrderToResponse) ---
+    // --- Full constructor (updated) ---
     public OrderResponse(Long id, Long customerId, OrderStatus status, LocalDateTime orderDate,
                          BigDecimal subtotal, BigDecimal vatTotal, BigDecimal total,
                          List<OrderItemResponse> items, AddressSnapshotResponse shippingAddress,
-                         List<PaymentDTO> payments, List<OrderStatusHistoryDTO> history) {
+                         List<PaymentDTO> payments, List<OrderStatusHistoryDTO> history,
+                         ShippingDTO shipment) { // added shipping parameter
         this.id = id;
         this.customerId = customerId;
         this.status = status;
@@ -35,9 +37,10 @@ public class OrderResponse {
         this.shippingAddress = shippingAddress;
         this.payments = payments;
         this.history = history;
+        this.shipment = shipment;
     }
 
-    // --- No-arg constructor (optional) ---
+    // --- No-arg constructor ---
     public OrderResponse() {}
 
     // --- Getters & Setters ---
@@ -73,4 +76,7 @@ public class OrderResponse {
 
     public List<OrderStatusHistoryDTO> getHistory() { return history; }
     public void setHistory(List<OrderStatusHistoryDTO> history) { this.history = history; }
+
+    public ShippingDTO getShipment() { return shipment; } 
+    public void setShipment(ShippingDTO shipment) { this.shipment = shipment; } 
 }

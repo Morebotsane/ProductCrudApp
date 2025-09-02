@@ -38,7 +38,9 @@ public class OrderResource {
             OrderResponse order = orderService.getOrderDto(orderId);
             return Response.ok(order).build();
         } catch (IllegalArgumentException e) {
-            return Response.status(Response.Status.NOT_FOUND).entity(e.getMessage()).build();
+            return Response.status(Response.Status.NOT_FOUND)
+                           .entity(e.getMessage())
+                           .build();
         }
     }
 
@@ -55,7 +57,8 @@ public class OrderResource {
             return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                           .entity("Unexpected error: " + e.getMessage()).build();
+                           .entity("Unexpected error: " + e.getMessage())
+                           .build();
         }
     }
 
@@ -64,7 +67,8 @@ public class OrderResource {
     // -------------------------
     @PUT
     @Path("/{orderId}/status")
-    public Response updateOrderStatus(@PathParam("orderId") Long orderId, UpdateStatusRequest request) {
+    public Response updateOrderStatus(@PathParam("orderId") Long orderId,
+                                      UpdateStatusRequest request) {
         try {
             // Safely convert string → enum
             OrderStatus newStatus;
@@ -72,7 +76,8 @@ public class OrderResource {
                 newStatus = OrderStatus.valueOf(request.getStatus().toUpperCase());
             } catch (IllegalArgumentException e) {
                 return Response.status(Response.Status.BAD_REQUEST)
-                               .entity("Invalid order status: " + request.getStatus()).build();
+                               .entity("Invalid order status: " + request.getStatus())
+                               .build();
             }
 
             OrderResponse updatedOrder = orderService.updateStatusDto(orderId, newStatus);
@@ -82,7 +87,8 @@ public class OrderResource {
             return Response.status(Response.Status.NOT_FOUND).entity(e.getMessage()).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                           .entity("Unexpected error: " + e.getMessage()).build();
+                           .entity("Unexpected error: " + e.getMessage())
+                           .build();
         }
     }
 
@@ -97,7 +103,8 @@ public class OrderResource {
             return Response.ok(orders).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                           .entity("Unexpected error: " + e.getMessage()).build();
+                           .entity("Unexpected error: " + e.getMessage())
+                           .build();
         }
     }
 }

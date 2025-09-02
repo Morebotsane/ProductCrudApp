@@ -1,8 +1,10 @@
 package com.example.services;
 
 import com.example.dao.*;
-import com.example.dto.*;
-import com.example.dto.mappers.*;
+import com.example.dto.OrderResponse;
+import com.example.dto.mappers.OrderMapper;
+import com.example.dto.mappers.PaymentMapper;
+import com.example.dto.mappers.OrderStatusHistoryMapper;
 import com.example.entities.*;
 
 import jakarta.ejb.Stateless;
@@ -25,7 +27,9 @@ public class OrderService {
 
     private static final BigDecimal VAT_RATE = new BigDecimal("0.15");
 
-    // --- CREATE ORDER FROM CART ---
+    // -------------------------
+    // CREATE ORDER FROM CART
+    // -------------------------
     @Transactional
     public OrderResponse createOrderFromCartDto(Long cartId) {
         Cart cart = cartDAO.findById(Cart.class, cartId);
@@ -46,7 +50,6 @@ public class OrderService {
         order.setOrderDate(LocalDateTime.now());
 
         BigDecimal subtotal = BigDecimal.ZERO;
-
         for (CartItem ci : cart.getItems()) {
             Product product = productDAO.findById(Product.class, ci.getProduct().getId());
             if (product == null) throw new IllegalArgumentException("Product not found: " + ci.getProduct().getId());
@@ -91,7 +94,9 @@ public class OrderService {
         return mapOrderToResponse(order);
     }
 
-    // --- PAY ORDER ---
+    // -------------------------
+    // PAY ORDER
+    // -------------------------
     @Transactional
     public OrderResponse payOrder(Long orderId, BigDecimal amount, PaymentMethod method, String txnRef) {
         Order order = orderDAO.findById(Order.class, orderId);
@@ -120,12 +125,13 @@ public class OrderService {
         return mapOrderToResponse(order);
     }
 
-    // --- UPDATE ORDER STATUS ---
+    // -------------------------
+    // UPDATE ORDER STATUS
+    // -------------------------
     @Transactional
     public OrderResponse updateStatusDto(Long orderId, OrderStatus newStatus) {
         Order order = orderDAO.findById(Order.class, orderId);
         if (order == null) throw new IllegalArgumentException("Order not found");
-
         if (!isValidTransition(order.getStatus(), newStatus))
             throw new IllegalStateException("Invalid transition: " + order.getStatus() + " -> " + newStatus);
 
@@ -137,7 +143,9 @@ public class OrderService {
         return mapOrderToResponse(order);
     }
 
-    // --- GET ORDERS ---
+    // -------------------------
+    // QUERY METHODS (for OrderResource)
+    // -------------------------
     public OrderResponse getOrderDto(Long orderId) {
         Order order = orderDAO.findById(Order.class, orderId);
         if (order == null) throw new IllegalArgumentException("Order not found");
@@ -157,7 +165,9 @@ public class OrderService {
                 .toList();
     }
 
-    // --- PRIVATE HELPERS ---
+    // -------------------------
+    // PRIVATE HELPERS
+    // -------------------------
     private boolean isValidTransition(OrderStatus from, OrderStatus to) {
         return switch (from) {
             case NEW -> to == OrderStatus.PAID || to == OrderStatus.CANCELLED;
@@ -168,12 +178,7 @@ public class OrderService {
     }
 
     private void logStatusChange(Order order, OrderStatus from, OrderStatus to) {
-        OrderStatusHistory history = new OrderStatusHistory();
-        history.setOrder(order);
-        history.setFromStatus(from);
-        history.setToStatus(to);
-        history.setChangedAt(LocalDateTime.now());
-        orderStatusHistoryDAO.save(history);
+        orderStatusHistoryDAO.save(new OrderStatusHistory(order, from, to));
     }
 
     private OrderResponse mapOrderToResponse(Order order) {

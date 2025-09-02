@@ -21,6 +21,7 @@ public class ApplicationConfig extends Application {
         classes.add(CustomerResource.class);//this is the customer resource  
         classes.add(CustomerAddressResource.class);
         classes.add(PaymentResource.class);
+        classes.add(ShippingResource.class);
         
         return classes;
     }

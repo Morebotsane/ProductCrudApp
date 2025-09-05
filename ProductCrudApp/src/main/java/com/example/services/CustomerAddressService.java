@@ -26,13 +26,15 @@ public class CustomerAddressService {
     @Inject
     private CustomerAddressMapper mapper;
 
-    /** Add a new address for a customer */
+    @Inject
+    private AuditService auditService;
+
+    // -------------------------
+    // ADD ADDRESS
+    // -------------------------
     @Transactional
     public AddressResponse addAddress(Long customerId, AddressRequest request) {
-        Customer customer = customerDAO.findById(Customer.class, customerId);
-        if (customer == null) {
-            throw new IllegalArgumentException("Customer not found");
-        }
+        Customer customer = getCustomerById(customerId);
 
         Address address = mapper.toEntity(request);
         address.setCustomer(customer);
@@ -43,32 +45,41 @@ public class CustomerAddressService {
         }
 
         addressDAO.save(address);
+        addressDAO.getEntityManager().flush();
+
+        auditService.record(
+                "system",
+                "ADD_ADDRESS",
+                "CustomerAddress",
+                address.getId(),
+                String.format("{\"customerId\": %d, \"addressId\": %d}", customerId, address.getId())
+        );
+
         return mapper.toResponse(address);
     }
 
-    /** Get all addresses for a customer */
+    // -------------------------
+    // LIST ADDRESSES
+    // -------------------------
     public List<AddressResponse> getAddresses(Long customerId) {
-        Customer customer = customerDAO.findById(Customer.class, customerId);
-        if (customer == null) {
-            throw new IllegalArgumentException("Customer not found");
-        }
+        Customer customer = getCustomerById(customerId);
 
-        return addressDAO.findByCustomer(customer).stream()
+        List<Address> addresses = addressDAO.findByCustomer(customer);
+        return addresses.stream()
                 .map(mapper::toResponse)
                 .collect(Collectors.toList());
     }
 
-    /** Update an existing address for a customer */
+    // -------------------------
+    // UPDATE ADDRESS
+    // -------------------------
     @Transactional
     public AddressResponse updateAddress(Long customerId, Long addressId, AddressRequest request) {
-        Customer customer = customerDAO.findById(Customer.class, customerId);
-        if (customer == null) {
-            throw new IllegalArgumentException("Customer not found");
-        }
+        Customer customer = getCustomerById(customerId);
 
         Address address = addressDAO.findById(Address.class, addressId);
         if (address == null || !address.getCustomer().getId().equals(customerId)) {
-            return null; // Not found or doesn't belong to this customer
+            return null; // Not found or not owned by this customer
         }
 
         mapper.updateEntity(address, request);
@@ -84,16 +95,25 @@ public class CustomerAddressService {
         }
 
         addressDAO.update(address);
+        addressDAO.getEntityManager().flush();
+
+        auditService.record(
+                "system",
+                "UPDATE_ADDRESS",
+                "CustomerAddress",
+                addressId,
+                String.format("{\"customerId\": %d, \"addressId\": %d}", customerId, addressId)
+        );
+
         return mapper.toResponse(address);
     }
 
-    /** Delete an address for a customer */
+    // -------------------------
+    // DELETE ADDRESS
+    // -------------------------
     @Transactional
     public boolean deleteAddress(Long customerId, Long addressId) {
-        Customer customer = customerDAO.findById(Customer.class, customerId);
-        if (customer == null) {
-            throw new IllegalArgumentException("Customer not found");
-        }
+        //Customer customer = getCustomerById(customerId);
 
         Address address = addressDAO.findById(Address.class, addressId);
         if (address == null || !address.getCustomer().getId().equals(customerId)) {
@@ -101,7 +121,25 @@ public class CustomerAddressService {
         }
 
         addressDAO.delete(address);
+        addressDAO.getEntityManager().flush();
+
+        auditService.record(
+                "system",
+                "DELETE_ADDRESS",
+                "CustomerAddress",
+                addressId,
+                String.format("{\"customerId\": %d, \"addressId\": %d}", customerId, addressId)
+        );
+
         return true;
     }
-}
 
+    // -------------------------
+    // DAO helpers
+    // -------------------------
+    private Customer getCustomerById(Long customerId) {
+        Customer customer = customerDAO.findById(Customer.class, customerId);
+        if (customer == null) throw new IllegalArgumentException("Customer not found");
+        return customer;
+    }
+}

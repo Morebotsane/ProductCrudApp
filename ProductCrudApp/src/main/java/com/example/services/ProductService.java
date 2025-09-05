@@ -1,10 +1,12 @@
 package com.example.services;
 
+//import com.example.services.AuditService;
 import com.example.dao.ProductDAO;
 import com.example.dto.PaginatedResponse;
 import com.example.dto.ProductRequest;
 import com.example.dto.ProductResponse;
 import com.example.entities.Product;
+
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 
@@ -18,9 +20,10 @@ public class ProductService {
     @Inject
     private ProductDAO productDAO;
 
-    /**
-     * Get products with optional filters and pagination
-     */
+    @Inject
+    private AuditService auditService;
+
+    /** List products with optional filters and pagination */
     public PaginatedResponse<ProductResponse> getProducts(
             int page,
             int size,
@@ -31,34 +34,45 @@ public class ProductService {
     ) {
         int offset = (page - 1) * size;
 
-        // Fetch filtered and paginated products from DAO
         List<Product> products = productDAO.findProducts(offset, size, nameFilter, minPrice, maxPrice, inStock);
 
-        // Map entity list to DTO list
         List<ProductResponse> dtoList = products.stream()
-                                                .map(ProductResponse::fromEntity)
-                                                .collect(Collectors.toList());
+                .map(ProductResponse::fromEntity)
+                .collect(Collectors.toList());
 
-        // Count total items for pagination metadata
         long totalItems = productDAO.countProducts(nameFilter, minPrice, maxPrice, inStock);
 
-        // Compute current page index (0-based)
-        int currentPage = page;
-
-        return new PaginatedResponse<>(dtoList, totalItems, currentPage, size);
+        return new PaginatedResponse<>(dtoList, totalItems, page, size);
     }
 
     /** Retrieve single product as DTO */
     public ProductResponse getProductById(Long id) {
         Product product = productDAO.findById(Product.class, id);
-        if (product == null) return null;
-        return ProductResponse.fromEntity(product);
+        return (product != null) ? ProductResponse.fromEntity(product) : null;
     }
 
     /** Create a new product from DTO */
     public ProductResponse createProduct(ProductRequest request) {
-        Product product = new Product(request.getName(), request.getDescription(), request.getPrice(), request.getProductCode(), request.getStock());
+        Product product = new Product(
+                request.getName(),
+                request.getDescription(),
+                request.getPrice(),
+                request.getProductCode(),
+                request.getStock()
+        );
+
         productDAO.save(product);
+        productDAO.getEntityManager().flush(); // force ID generation
+
+        // Record audit after ID is assigned
+        auditService.record(
+                "system",
+                "CREATE_PRODUCT",
+                "Product",
+                product.getId(),
+                String.format("{\"name\":\"%s\",\"price\":%s}", request.getName(), request.getPrice())
+        );
+
         return ProductResponse.fromEntity(product);
     }
 
@@ -70,7 +84,18 @@ public class ProductService {
         existing.setName(request.getName());
         existing.setDescription(request.getDescription());
         existing.setPrice(request.getPrice());
+
         productDAO.update(existing);
+        productDAO.getEntityManager().flush(); // ensure managed state
+
+        // Record audit after update
+        auditService.record(
+                "system",
+                "UPDATE_PRODUCT",
+                "Product",
+                existing.getId(),
+                String.format("{\"name\":\"%s\",\"price\":%s}", request.getName(), request.getPrice())
+        );
 
         return ProductResponse.fromEntity(existing);
     }
@@ -78,10 +103,20 @@ public class ProductService {
     /** Delete product by ID */
     public boolean deleteProduct(Long id) {
         Product existing = productDAO.findById(Product.class, id);
-        if (existing != null) {
-            productDAO.delete(existing);
-            return true;
-        }
-        return false;
+        if (existing == null) return false;
+
+        productDAO.delete(existing);
+        productDAO.getEntityManager().flush(); // optional but safe
+
+        // Record audit after delete
+        auditService.record(
+                "system",
+                "DELETE_PRODUCT",
+                "Product",
+                id,
+                "{}"
+        );
+
+        return true;
     }
 }

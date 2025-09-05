@@ -2,18 +2,18 @@ package com.example.dao;
 
 import com.example.entities.Product;
 import jakarta.ejb.Stateless;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 @Stateless
-public class ProductDAO {
+public class ProductDAO extends BaseDAO<Product> {
 
-    @PersistenceContext
-    private EntityManager em;
+    // EJB requires a no-arg constructor
+    public ProductDAO() {
+        super(Product.class);
+    }
 
     /**
      * Find products with pagination and optional filters.
@@ -38,7 +38,7 @@ public class ProductDAO {
 
         jpql.append(" ORDER BY p.createdAt DESC");
 
-        TypedQuery<Product> query = em.createQuery(jpql.toString(), Product.class);
+        TypedQuery<Product> query = getEntityManager().createQuery(jpql.toString(), Product.class);
 
         if (nameFilter != null && !nameFilter.isEmpty()) {
             query.setParameter("name", "%" + nameFilter.toLowerCase() + "%");
@@ -76,7 +76,7 @@ public class ProductDAO {
             jpql.append(" AND p.stock > 0");
         }
 
-        TypedQuery<Long> query = em.createQuery(jpql.toString(), Long.class);
+        TypedQuery<Long> query = getEntityManager().createQuery(jpql.toString(), Long.class);
 
         if (nameFilter != null && !nameFilter.isEmpty()) {
             query.setParameter("name", "%" + nameFilter.toLowerCase() + "%");
@@ -89,22 +89,5 @@ public class ProductDAO {
         }
 
         return query.getSingleResult();
-    }
-
-    /** Standard CRUD operations */
-    public void save(Product product) {
-        em.persist(product);
-    }
-
-    public <T> T findById(Class<T> entityClass, Object id) {
-        return em.find(entityClass, id);
-    }
-
-    public void update(Product product) {
-        em.merge(product);
-    }
-
-    public void delete(Product product) {
-        em.remove(em.contains(product) ? product : em.merge(product));
     }
 }

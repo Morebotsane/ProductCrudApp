@@ -1,16 +1,18 @@
 package com.example.resources;
 
+import com.example.audit.Audited;
 import com.example.dto.CartItemRequest;
 import com.example.dto.CartResponse;
+import com.example.dto.APIResponse;
 import com.example.dto.mappers.CartMapper;
+import com.example.services.AuditService;
 import com.example.services.CartService;
 
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
-
-import java.math.BigDecimal;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 @Path("/carts")
 @Produces(MediaType.APPLICATION_JSON)
@@ -23,138 +25,127 @@ public class CartResource {
     @Inject
     private CartMapper cartMapper;
 
-    // -------------------------
-    // Helper for standardized responses
-    // -------------------------
-    private Response wrapCartResponse(CartResponse cartResponse, Response.Status status) {
-        return Response.status(status).entity(cartResponse).build();
-    }
+    @Inject
+    private AuditService auditService;
 
-    private Response wrapError(String message, Response.Status status) {
-        return Response.status(status).entity(message).build();
-    }
+    private static final String ENTITY_TYPE = "Cart";
 
     // -------------------------
-    // Cart endpoints
+    // CREATE CART
     // -------------------------
-
     @POST
     @Path("/customer/{customerId}")
-    public Response createCart(@PathParam("customerId") Long customerId) {
-        try {
-            CartResponse response = cartMapper.toCartResponse(
-                    cartService.getOrCreateActiveCart(customerId)
-            );
-            return wrapCartResponse(response, Response.Status.CREATED);
-        } catch (IllegalArgumentException e) {
-            return wrapError(e.getMessage(), Response.Status.NOT_FOUND);
-        } catch (Exception e) {
-            return wrapError("Unexpected error: " + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
-        }
+    @Audited(action = "CREATE_CART")
+    public Response createCart(@PathParam("customerId") Long customerId,
+                               @Context ContainerRequestContext ctx) {
+
+        CartResponse response = cartMapper.toCartResponse(
+                cartService.getOrCreateActiveCart(customerId)
+        );
+
+        String payload = String.format("{ \"customerId\": %d }", customerId);
+        auditService.setAudit(ctx, ENTITY_TYPE, "CREATE_CART", response.getId(), payload);
+
+        return Response.status(Response.Status.CREATED)
+                .entity(new APIResponse<>(true, "Cart created successfully", response))
+                .build();
     }
 
+    // -------------------------
+    // ADD PRODUCT TO CART
+    // -------------------------
     @POST
     @Path("/{cartId}/items")
-    public Response addProduct(@PathParam("cartId") Long cartId, @Valid CartItemRequest itemRequest) {
-        try {
-            CartResponse response = cartMapper.toCartResponse(
-                    cartService.addProduct(cartId, itemRequest.getProductId(), itemRequest.getQuantity())
-            );
-            return wrapCartResponse(response, Response.Status.OK);
-        } catch (IllegalArgumentException e) {
-            return wrapError(e.getMessage(), Response.Status.NOT_FOUND);
-        } catch (Exception e) {
-            return wrapError("Unexpected error: " + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
-        }
+    @Audited(action = "ADD_PRODUCT_TO_CART")
+    public Response addProduct(@PathParam("cartId") Long cartId,
+                               @Valid CartItemRequest itemRequest,
+                               @Context ContainerRequestContext ctx) {
+
+        CartResponse response = cartMapper.toCartResponse(
+                cartService.addProduct(cartId, itemRequest.getProductId(), itemRequest.getQuantity())
+        );
+
+        String payload = String.format("{ \"productId\": %d, \"quantity\": %d }",
+                itemRequest.getProductId(), itemRequest.getQuantity());
+
+        auditService.setAudit(ctx, ENTITY_TYPE, "ADD_PRODUCT_TO_CART", cartId, payload);
+
+        return Response.ok(new APIResponse<>(true, "Product added to cart", response)).build();
     }
 
+    // -------------------------
+    // REMOVE PRODUCT FROM CART
+    // -------------------------
     @DELETE
     @Path("/{cartId}/items/{productId}")
-    public Response removeProduct(@PathParam("cartId") Long cartId, @PathParam("productId") Long productId) {
-        try {
-            CartResponse response = cartMapper.toCartResponse(
-                    cartService.removeProduct(cartId, productId)
-            );
-            return wrapCartResponse(response, Response.Status.OK);
-        } catch (IllegalArgumentException e) {
-            return wrapError(e.getMessage(), Response.Status.NOT_FOUND);
-        } catch (Exception e) {
-            return wrapError("Unexpected error: " + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
-        }
+    @Audited(action = "REMOVE_PRODUCT_FROM_CART")
+    public Response removeProduct(@PathParam("cartId") Long cartId,
+                                  @PathParam("productId") Long productId,
+                                  @Context ContainerRequestContext ctx) {
+
+        CartResponse response = cartMapper.toCartResponse(
+                cartService.removeProduct(cartId, productId)
+        );
+
+        String payload = String.format("{ \"productId\": %d }", productId);
+        auditService.setAudit(ctx, ENTITY_TYPE, "REMOVE_PRODUCT_FROM_CART", cartId, payload);
+
+        return Response.ok(new APIResponse<>(true, "Product removed from cart", response)).build();
     }
 
+    // -------------------------
+    // DECREMENT PRODUCT IN CART
+    // -------------------------
     @POST
     @Path("/{cartId}/items/{productId}/decrement")
-    public Response decrementProduct(@PathParam("cartId") Long cartId, @PathParam("productId") Long productId) {
-        try {
-            CartResponse response = cartMapper.toCartResponse(
-                    cartService.decrementProductQuantity(cartId, productId)
-            );
-            return wrapCartResponse(response, Response.Status.OK);
-        } catch (IllegalArgumentException e) {
-            return wrapError(e.getMessage(), Response.Status.NOT_FOUND);
-        } catch (Exception e) {
-            return wrapError("Unexpected error: " + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
-        }
+    @Audited(action = "DECREMENT_PRODUCT_IN_CART")
+    public Response decrementProduct(@PathParam("cartId") Long cartId,
+                                     @PathParam("productId") Long productId,
+                                     @Context ContainerRequestContext ctx) {
+
+        CartResponse response = cartMapper.toCartResponse(
+                cartService.decrementProductQuantity(cartId, productId)
+        );
+
+        String payload = String.format("{ \"productId\": %d }", productId);
+        auditService.setAudit(ctx, ENTITY_TYPE, "DECREMENT_PRODUCT_IN_CART", cartId, payload);
+
+        return Response.ok(new APIResponse<>(true, "Product quantity decremented", response)).build();
     }
 
+    // -------------------------
+    // CLEAR CART
+    // -------------------------
     @POST
     @Path("/{cartId}/clear")
-    public Response clearCart(@PathParam("cartId") Long cartId) {
-        try {
-            CartResponse response = cartMapper.toCartResponse(
-                    cartService.clearCart(cartId)
-            );
-            return wrapCartResponse(response, Response.Status.OK);
-        } catch (IllegalArgumentException e) {
-            return wrapError(e.getMessage(), Response.Status.NOT_FOUND);
-        } catch (Exception e) {
-            return wrapError("Unexpected error: " + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
-        }
+    @Audited(action = "CLEAR_CART")
+    public Response clearCart(@PathParam("cartId") Long cartId,
+                              @Context ContainerRequestContext ctx) {
+
+        CartResponse response = cartMapper.toCartResponse(
+                cartService.clearCart(cartId)
+        );
+
+        auditService.setAudit(ctx, ENTITY_TYPE, "CLEAR_CART", cartId, "{}");
+
+        return Response.ok(new APIResponse<>(true, "Cart cleared successfully", response)).build();
     }
 
     // -------------------------
-    // Totals endpoints
+    // VIEW CART
     // -------------------------
-
-    @GET
-    @Path("/{cartId}/total")
-    public Response getTotal(@PathParam("cartId") Long cartId) {
-        try {
-            BigDecimal total = cartService.getTotal(cartService.getCartById(cartId));
-            return Response.ok(total).build();
-        } catch (IllegalArgumentException e) {
-            return wrapError(e.getMessage(), Response.Status.NOT_FOUND);
-        } catch (Exception e) {
-            return wrapError("Unexpected error: " + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    @GET
-    @Path("/{cartId}/total-vat")
-    public Response getTotalWithVAT(@PathParam("cartId") Long cartId) {
-        try {
-            BigDecimal totalVAT = cartService.getTotalWithVAT(cartService.getCartById(cartId));
-            return Response.ok(totalVAT).build();
-        } catch (IllegalArgumentException e) {
-            return wrapError(e.getMessage(), Response.Status.NOT_FOUND);
-        } catch (Exception e) {
-            return wrapError("Unexpected error: " + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
-        }
-    }
-
     @GET
     @Path("/{cartId}")
-    public Response getCart(@PathParam("cartId") Long cartId) {
-        try {
-            CartResponse response = cartMapper.toCartResponse(
-                    cartService.getCartById(cartId)
-            );
-            return wrapCartResponse(response, Response.Status.OK);
-        } catch (IllegalArgumentException e) {
-            return wrapError(e.getMessage(), Response.Status.NOT_FOUND);
-        } catch (Exception e) {
-            return wrapError("Unexpected error: " + e.getMessage(), Response.Status.INTERNAL_SERVER_ERROR);
-        }
+    @Audited(action = "VIEW_CART")
+    public Response getCart(@PathParam("cartId") Long cartId,
+                            @Context ContainerRequestContext ctx) {
+
+        CartResponse response = cartMapper.toCartResponse(
+                cartService.getCartById(cartId)
+        );
+
+        auditService.setAudit(ctx, ENTITY_TYPE, "VIEW_CART", cartId, "{}");
+
+        return Response.ok(new APIResponse<>(true, "Cart retrieved successfully", response)).build();
     }
 }

@@ -61,6 +61,9 @@ public abstract class BaseDAO<T> {
     public void delete(T entity) {
         em.remove(em.contains(entity) ? entity : em.merge(entity));
     }
+    public void flush() {
+        getEntityManager().flush();
+    }
 }
 
 

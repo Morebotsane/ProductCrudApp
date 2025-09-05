@@ -11,6 +11,10 @@ import jakarta.ws.rs.core.*;
 
 import java.util.List;
 
+import com.example.audit.Audited;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.container.ContainerRequestContext;
+
 @Path("/orders")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -23,8 +27,14 @@ public class OrderResource {
     // GET ALL ORDERS
     // -------------------------
     @GET
-    public Response getAllOrders() {
+    @Audited(action = "LIST_ORDERS")
+    public Response getAllOrders(@Context ContainerRequestContext requestContext) {
         List<OrderResponse> orders = orderService.getAllOrderDtos();
+
+        // no specific entityId here, just listing all orders
+        requestContext.setProperty("entityType", "Order");
+        requestContext.setProperty("auditPayload", "{ \"count\": " + orders.size() + " }");
+
         return Response.ok(orders).build();
     }
 
@@ -33,9 +43,17 @@ public class OrderResource {
     // -------------------------
     @GET
     @Path("/{orderId}")
-    public Response getOrderById(@PathParam("orderId") Long orderId) {
+    @Audited(action = "VIEW_ORDER")
+    public Response getOrderById(@PathParam("orderId") Long orderId,
+                                 @Context ContainerRequestContext requestContext) {
         try {
             OrderResponse order = orderService.getOrderDto(orderId);
+
+            // Pass metadata to the audit filter
+            requestContext.setProperty("entityType", "Order");
+            requestContext.setProperty("entityId", orderId);
+            requestContext.setProperty("auditPayload", "{ \"orderId\": " + orderId + " }");
+
             return Response.ok(order).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.NOT_FOUND)
@@ -49,9 +67,17 @@ public class OrderResource {
     // -------------------------
     @POST
     @Path("/from-cart/{cartId}")
-    public Response createOrderFromCart(@PathParam("cartId") Long cartId) {
+    @Audited(action = "CREATE_ORDER")
+    public Response createOrderFromCart(@PathParam("cartId") Long cartId,
+                                        @Context ContainerRequestContext requestContext) {
         try {
             OrderResponse order = orderService.createOrderFromCartDto(cartId);
+
+            requestContext.setProperty("entityType", "Order");
+            requestContext.setProperty("entityId", order.getId());
+            requestContext.setProperty("auditPayload",
+                    "{ \"cartId\": " + cartId + ", \"orderId\": " + order.getId() + " }");
+
             return Response.status(Response.Status.CREATED).entity(order).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
@@ -67,10 +93,11 @@ public class OrderResource {
     // -------------------------
     @PUT
     @Path("/{orderId}/status")
+    @Audited(action = "UPDATE_ORDER_STATUS")
     public Response updateOrderStatus(@PathParam("orderId") Long orderId,
-                                      UpdateStatusRequest request) {
+                                      UpdateStatusRequest request,
+                                      @Context ContainerRequestContext requestContext) {
         try {
-            // Safely convert string → enum
             OrderStatus newStatus;
             try {
                 newStatus = OrderStatus.valueOf(request.getStatus().toUpperCase());
@@ -81,8 +108,13 @@ public class OrderResource {
             }
 
             OrderResponse updatedOrder = orderService.updateStatusDto(orderId, newStatus);
-            return Response.ok(updatedOrder).build();
 
+            requestContext.setProperty("entityType", "Order");
+            requestContext.setProperty("entityId", orderId);
+            requestContext.setProperty("auditPayload",
+                    "{ \"newStatus\": \"" + newStatus + "\" }");
+
+            return Response.ok(updatedOrder).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(e.getMessage()).build();
         } catch (Exception e) {
@@ -97,9 +129,16 @@ public class OrderResource {
     // -------------------------
     @GET
     @Path("/customer/{customerId}")
-    public Response getOrdersByCustomer(@PathParam("customerId") Long customerId) {
+    @Audited(action = "LIST_ORDERS_BY_CUSTOMER")
+    public Response getOrdersByCustomer(@PathParam("customerId") Long customerId,
+                                        @Context ContainerRequestContext requestContext) {
         try {
             List<OrderResponse> orders = orderService.getOrdersByCustomerDto(customerId);
+
+            requestContext.setProperty("entityType", "Order");
+            requestContext.setProperty("auditPayload",
+                    "{ \"customerId\": " + customerId + ", \"count\": " + orders.size() + " }");
+
             return Response.ok(orders).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)

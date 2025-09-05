@@ -30,6 +30,9 @@ public class CartService {
     @Inject
     private CustomerDAO customerDAO;
 
+    @Inject
+    private AuditService auditService;
+
     private static final BigDecimal VAT_RATE = new BigDecimal("0.15");
 
     // -------------------------
@@ -53,6 +56,16 @@ public class CartService {
         newCart.setExpiresAt(now.plusHours(2));
 
         cartDAO.save(newCart);
+        cartDAO.getEntityManager().flush();
+
+        auditService.record(
+                "system",
+                "CREATE_CART",
+                "Cart",
+                newCart.getId(),
+                String.format("{\"customerId\": %d}", customerId)
+        );
+
         return newCart;
     }
 
@@ -89,6 +102,16 @@ public class CartService {
 
         cart.setUpdatedAt(LocalDateTime.now());
         cartDAO.update(cart);
+        cartDAO.getEntityManager().flush();
+
+        auditService.record(
+                "system",
+                "ADD_PRODUCT_TO_CART",
+                "Cart",
+                cartId,
+                String.format("{\"productId\": %d, \"quantity\": %d}", productId, quantity)
+        );
+
         return cart;
     }
 
@@ -104,6 +127,16 @@ public class CartService {
 
         cart.setUpdatedAt(LocalDateTime.now());
         cartDAO.update(cart);
+        cartDAO.getEntityManager().flush();
+
+        auditService.record(
+                "system",
+                "REMOVE_PRODUCT_FROM_CART",
+                "Cart",
+                cartId,
+                String.format("{\"productId\": %d}", productId)
+        );
+
         return cart;
     }
 
@@ -119,6 +152,15 @@ public class CartService {
                 else cart.getItems().remove(item);
                 cart.setUpdatedAt(LocalDateTime.now());
                 cartDAO.update(cart);
+                cartDAO.getEntityManager().flush();
+
+                auditService.record(
+                        "system",
+                        "DECREMENT_PRODUCT_IN_CART",
+                        "Cart",
+                        cartId,
+                        String.format("{\"productId\": %d}", productId)
+                );
             }, () -> { throw new IllegalArgumentException("Product not found in cart"); });
 
         return cart;
@@ -130,6 +172,16 @@ public class CartService {
         cart.getItems().clear();
         cart.setUpdatedAt(LocalDateTime.now());
         cartDAO.update(cart);
+        cartDAO.getEntityManager().flush();
+
+        auditService.record(
+                "system",
+                "CLEAR_CART",
+                "Cart",
+                cartId,
+                "{}"
+        );
+
         return cart;
     }
 
@@ -162,8 +214,17 @@ public class CartService {
         for (Cart cart : expired) {
             cart.setStatus(CartStatus.EXPIRED);
             cart.setUpdatedAt(now);
+
+            auditService.record(
+                    "system",
+                    "EXPIRE_CART",
+                    "Cart",
+                    cart.getId(),
+                    "{}"
+            );
         }
         cartDAO.updateAll(expired);
+        cartDAO.getEntityManager().flush();
     }
 
     // -------------------------

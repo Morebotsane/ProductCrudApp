@@ -20,7 +20,11 @@ public class ShippingService {
     @Inject private OrderDAO orderDAO;
     @Inject private ShipmentDAO shipmentDAO;
     @Inject private OrderStatusHistoryDAO orderStatusHistoryDAO;
+    @Inject private AuditService auditService;
 
+    // -------------------------
+    // SHIP ORDER
+    // -------------------------
     @Transactional
     public OrderResponse shipOrder(Long orderId, String carrier) {
         Order order = fetchOrder(orderId);
@@ -34,12 +38,25 @@ public class ShippingService {
         shipment.setShippedAt(LocalDateTime.now());
         shipment.setTrackingNumber("TRK-" + System.currentTimeMillis());
         shipmentDAO.save(shipment);
+        shipmentDAO.getEntityManager().flush();
 
         logStatusChange(order, OrderStatus.PAID, OrderStatus.SHIPPED);
+
+        auditService.record(
+                "system",
+                "SHIP_ORDER",
+                "Order",
+                orderId,
+                String.format("{\"carrier\": \"%s\", \"trackingNumber\": \"%s\"}", 
+                              carrier, shipment.getTrackingNumber())
+        );
 
         return mapOrderToResponse(order);
     }
 
+    // -------------------------
+    // DELIVER ORDER
+    // -------------------------
     @Transactional
     public OrderResponse deliverOrder(Long orderId) {
         Order order = fetchOrder(orderId);
@@ -52,13 +69,25 @@ public class ShippingService {
 
         shipment.setDeliveredAt(LocalDateTime.now());
         shipmentDAO.update(shipment);
+        shipmentDAO.getEntityManager().flush();
 
         logStatusChange(order, OrderStatus.SHIPPED, OrderStatus.DELIVERED);
+
+        auditService.record(
+                "system",
+                "DELIVER_ORDER",
+                "Order",
+                orderId,
+                String.format("{\"shipmentId\": %d, \"deliveredAt\": \"%s\"}", 
+                              shipment.getId(), shipment.getDeliveredAt())
+        );
 
         return mapOrderToResponse(order);
     }
 
-    // --- PRIVATE HELPERS ---
+    // -------------------------
+    // PRIVATE HELPERS
+    // -------------------------
     private Order fetchOrder(Long orderId) {
         Order order = orderDAO.findById(Order.class, orderId);
         if (order == null) throw new IllegalArgumentException("Order not found");
@@ -72,10 +101,12 @@ public class ShippingService {
     private void updateOrderStatus(Order order, OrderStatus newStatus) {
         order.setStatus(newStatus);
         orderDAO.update(order);
+        orderDAO.getEntityManager().flush();
     }
 
     private void logStatusChange(Order order, OrderStatus from, OrderStatus to) {
         orderStatusHistoryDAO.save(new OrderStatusHistory(order, from, to));
+        orderStatusHistoryDAO.getEntityManager().flush();
     }
 
     private OrderResponse mapOrderToResponse(Order order) {

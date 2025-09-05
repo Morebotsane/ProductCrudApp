@@ -11,16 +11,13 @@ public class CustomerDAO extends BaseDAO<Customer> {
         super(Customer.class);
     }
 
-    /**
-     * Find customers with pagination and optional email filter.
-     */
     public List<Customer> findCustomers(int offset, int limit, String emailFilter) {
         String jpql = "SELECT c FROM Customer c";
         if (emailFilter != null && !emailFilter.isEmpty()) {
             jpql += " WHERE LOWER(c.email) LIKE LOWER(:emailFilter)";
         }
 
-        var query = em.createQuery(jpql, Customer.class);
+        var query = getEntityManager().createQuery(jpql, Customer.class);
 
         if (emailFilter != null && !emailFilter.isEmpty()) {
             query.setParameter("emailFilter", "%" + emailFilter + "%");
@@ -32,16 +29,13 @@ public class CustomerDAO extends BaseDAO<Customer> {
         return query.getResultList();
     }
 
-    /**
-     * Count customers (for pagination metadata).
-     */
     public long countCustomers(String emailFilter) {
         String jpql = "SELECT COUNT(c) FROM Customer c";
         if (emailFilter != null && !emailFilter.isEmpty()) {
             jpql += " WHERE LOWER(c.email) LIKE LOWER(:emailFilter)";
         }
 
-        var query = em.createQuery(jpql, Long.class);
+        var query = getEntityManager().createQuery(jpql, Long.class);
 
         if (emailFilter != null && !emailFilter.isEmpty()) {
             query.setParameter("emailFilter", "%" + emailFilter + "%");

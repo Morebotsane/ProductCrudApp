@@ -7,6 +7,8 @@ import com.example.dto.OrderResponse;
 import com.example.dto.mappers.OrderMapper;
 import com.example.dto.mappers.ShippingMapper;
 import com.example.entities.*;
+import com.example.security.JwtTokenService;
+import com.example.security.exceptions.UnauthorizedAccessException;
 
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
@@ -21,12 +23,15 @@ public class ShippingService {
     @Inject private ShipmentDAO shipmentDAO;
     @Inject private OrderStatusHistoryDAO orderStatusHistoryDAO;
     @Inject private AuditService auditService;
+    @Inject private JwtTokenService jwtTokenService;
 
     // -------------------------
-    // SHIP ORDER
+    // SHIP ORDER (Admin only)
     // -------------------------
     @Transactional
     public OrderResponse shipOrder(Long orderId, String carrier) {
+        enforceAdminRole();
+
         Order order = fetchOrder(orderId);
         validateStatus(order, OrderStatus.PAID, "Only PAID orders can be shipped");
 
@@ -43,22 +48,24 @@ public class ShippingService {
         logStatusChange(order, OrderStatus.PAID, OrderStatus.SHIPPED);
 
         auditService.record(
-                "system",
+                jwtTokenService.getUsername(),
                 "SHIP_ORDER",
                 "Order",
                 orderId,
-                String.format("{\"carrier\": \"%s\", \"trackingNumber\": \"%s\"}", 
-                              carrier, shipment.getTrackingNumber())
+                String.format("{\"carrier\": \"%s\", \"trackingNumber\": \"%s\"}",
+                        carrier, shipment.getTrackingNumber())
         );
 
         return mapOrderToResponse(order);
     }
 
     // -------------------------
-    // DELIVER ORDER
+    // DELIVER ORDER (Admin only)
     // -------------------------
     @Transactional
     public OrderResponse deliverOrder(Long orderId) {
+        enforceAdminRole();
+
         Order order = fetchOrder(orderId);
         validateStatus(order, OrderStatus.SHIPPED, "Only SHIPPED orders can be delivered");
 
@@ -74,12 +81,12 @@ public class ShippingService {
         logStatusChange(order, OrderStatus.SHIPPED, OrderStatus.DELIVERED);
 
         auditService.record(
-                "system",
+                jwtTokenService.getUsername(),
                 "DELIVER_ORDER",
                 "Order",
                 orderId,
-                String.format("{\"shipmentId\": %d, \"deliveredAt\": \"%s\"}", 
-                              shipment.getId(), shipment.getDeliveredAt())
+                String.format("{\"shipmentId\": %d, \"deliveredAt\": \"%s\"}",
+                        shipment.getId(), shipment.getDeliveredAt())
         );
 
         return mapOrderToResponse(order);
@@ -113,5 +120,14 @@ public class ShippingService {
         OrderResponse dto = OrderMapper.toDto(order);
         dto.setShipment(ShippingMapper.toDto(shipmentDAO.findByOrder(order)));
         return dto;
+    }
+
+    // -------------------------
+    // ROLE ENFORCEMENT
+    // -------------------------
+    private void enforceAdminRole() {
+        if (!jwtTokenService.isAdmin()) {
+            throw new UnauthorizedAccessException("Only admins can perform shipping operations");
+        }
     }
 }

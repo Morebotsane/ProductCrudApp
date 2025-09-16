@@ -8,6 +8,8 @@ import com.example.services.CustomerService;
 import com.example.services.AuditService;
 import com.example.audit.Audited;
 
+//import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -35,6 +37,7 @@ public class CustomerResource {
     // -------------------------
     @POST
     @Audited(action = "CREATE_CUSTOMER")
+    @RolesAllowed("ROLE_CUSTOMER")
     public Response createCustomer(@Valid CustomerRequest request,
                                    @Context ContainerRequestContext ctx) {
         CustomerResponse response = customerService.createCustomer(request);
@@ -57,6 +60,7 @@ public class CustomerResource {
     @GET
     @Path("/{id}")
     @Audited(action = "VIEW_CUSTOMER")
+    @RolesAllowed({"ROLE_CUSTOMER","ROLE_ADMIN"})
     public Response getCustomer(@PathParam("id") Long id,
                                 @Context ContainerRequestContext ctx) {
         CustomerResponse customer = customerService.getCustomerById(id);
@@ -76,6 +80,7 @@ public class CustomerResource {
     // -------------------------
     @GET
     @Audited(action = "LIST_CUSTOMERS")
+    @RolesAllowed("ROLE_ADMIN")
     public Response getCustomers(@QueryParam("page") @DefaultValue("1") int page,
                                  @QueryParam("size") @DefaultValue("10") int size,
                                  @QueryParam("name") String emailFilter,
@@ -98,6 +103,7 @@ public class CustomerResource {
     @PUT
     @Path("/{id}")
     @Audited(action = "UPDATE_CUSTOMER")
+    @RolesAllowed({"ROLE_CUSTOMER","ROLE_ADMIN"})
     public Response updateCustomer(@PathParam("id") Long id,
                                    @Valid CustomerRequest request,
                                    @Context ContainerRequestContext ctx) {
@@ -124,6 +130,7 @@ public class CustomerResource {
     @DELETE
     @Path("/{id}")
     @Audited(action = "DELETE_CUSTOMER")
+    @RolesAllowed({"ROLE_CUSTOMER","ROLE_ADMIN"})
     public Response deleteCustomer(@PathParam("id") Long id,
                                    @Context ContainerRequestContext ctx) {
         boolean deleted = customerService.deleteCustomer(id);

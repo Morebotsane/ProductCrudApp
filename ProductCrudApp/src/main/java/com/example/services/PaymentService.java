@@ -7,6 +7,7 @@ import com.example.dto.OrderResponse;
 import com.example.dto.mappers.OrderMapper;
 import com.example.dto.mappers.PaymentMapper;
 import com.example.entities.*;
+import com.example.security.JwtTokenService;
 
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
@@ -19,40 +20,59 @@ import java.util.List;
 @Stateless
 public class PaymentService {
 
-    @Inject private OrderDAO orderDAO;
-    @Inject private PaymentDAO paymentDAO;
-    @Inject private OrderStatusHistoryDAO orderStatusHistoryDAO;
+    @Inject 
+    private OrderDAO orderDAO;
 
+    @Inject 
+    private PaymentDAO paymentDAO;
+
+    @Inject 
+    private OrderStatusHistoryDAO orderStatusHistoryDAO;
+
+    @Inject
+    private JwtTokenService jwtTokenService;
+
+    // -------------------------
+    // PAY ORDER
+    // -------------------------
     @Transactional
     public OrderResponse payOrder(Long orderId, BigDecimal amount, PaymentMethod method, String txnRef) {
         Order order = orderDAO.findById(Order.class, orderId);
         if (order == null) throw new IllegalArgumentException("Order not found");
 
+        // Enforce that the logged-in customer owns this order (if customer role)
+        enforceOrderOwnership(order);
+
+        Payment payment = createPayment(order, amount, method, txnRef);
+
+        if (amount.compareTo(order.getTotal()) >= 0) {
+            payment.setStatus(PaymentStatus.SUCCEEDED);
+            updateOrderStatus(order, OrderStatus.PAID);
+        } else {
+            payment.setStatus(PaymentStatus.FAILED);
+        }
+
+        paymentDAO.save(payment);
+        paymentDAO.getEntityManager().flush(); // ensure persistence
+
+        return mapOrderToResponse(order);
+    }
+
+    private Payment createPayment(Order order, BigDecimal amount, PaymentMethod method, String txnRef) {
         Payment payment = new Payment();
         payment.setOrder(order);
         payment.setAmount(amount);
         payment.setMethod(method);
         payment.setTxnRef(txnRef);
         payment.setCreatedAt(LocalDateTime.now());
-
-        if (amount.compareTo(order.getTotal()) >= 0) {
-            payment.setStatus(PaymentStatus.SUCCEEDED);
-            paymentDAO.save(payment);
-
-            OrderStatus oldStatus = order.getStatus();
-            order.setStatus(OrderStatus.PAID);
-            orderDAO.update(order);
-            logStatusChange(order, oldStatus, OrderStatus.PAID);
-        } else {
-            payment.setStatus(PaymentStatus.FAILED);
-            paymentDAO.save(payment);
-        }
-
-        return mapOrderToResponse(order);
+        return payment;
     }
 
-    public List<Payment> getPaymentsForOrder(Order order) {
-        return paymentDAO.findByOrder(order);
+    private void updateOrderStatus(Order order, OrderStatus newStatus) {
+        OrderStatus oldStatus = order.getStatus();
+        order.setStatus(newStatus);
+        orderDAO.update(order);
+        logStatusChange(order, oldStatus, newStatus);
     }
 
     private void logStatusChange(Order order, OrderStatus from, OrderStatus to) {
@@ -61,7 +81,24 @@ public class PaymentService {
 
     private OrderResponse mapOrderToResponse(Order order) {
         OrderResponse dto = OrderMapper.toDto(order);
-        dto.setPayments(PaymentMapper.toDto(paymentDAO.findByOrder(order)));
+        List<Payment> payments = paymentDAO.findByOrder(order);
+        dto.setPayments(PaymentMapper.toDto(payments));
         return dto;
+    }
+
+    public List<Payment> getPaymentsForOrder(Order order) {
+        return paymentDAO.findByOrder(order);
+    }
+
+    // ----------------------------
+    // Ownership / Role enforcement
+    // ----------------------------
+    private void enforceOrderOwnership(Order order) {
+        if (jwtTokenService.isCustomer()) {
+            Long currentUserId = jwtTokenService.getCurrentUserId();
+            if (!order.getCustomer().getId().equals(currentUserId)) {
+                throw new SecurityException("Forbidden: Cannot pay for another customer's order");
+            }
+        }
     }
 }

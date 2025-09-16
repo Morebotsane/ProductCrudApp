@@ -3,13 +3,18 @@ package com.example.config;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.eclipse.microprofile.auth.LoginConfig;
+
 import com.example.exception.ConstraintViolationExceptionMapper;
 import com.example.resources.*;
 
+import jakarta.annotation.security.DeclareRoles;
 import jakarta.ws.rs.ApplicationPath;
 import jakarta.ws.rs.core.Application;
 
 @ApplicationPath("/api")
+@LoginConfig(authMethod = "MP-JWT") // tells GlassFish to use MicroProfile JWT
+@DeclareRoles({"ROLE_CUSTOMER", "ROLE_ADMIN"})
 public class ApplicationConfig extends Application {
     @Override
     public Set<Class<?>> getClasses() {

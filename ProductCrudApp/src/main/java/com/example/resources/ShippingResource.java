@@ -7,21 +7,19 @@ import com.example.services.ShippingService;
 import com.example.services.AuditService;
 import com.example.audit.Audited;
 
+import jakarta.annotation.security.RolesAllowed;
+import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
-import jakarta.ws.rs.container.ContainerRequestContext;
 
 @Path("/shipping")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class ShippingResource {
 
-    @Inject
-    private ShippingService shippingService;
-
-    @Inject
-    private AuditService auditService;
+    @Inject private ShippingService shippingService;
+    @Inject private AuditService auditService;
 
     private static final String ENTITY_TYPE = "Order";
 
@@ -31,6 +29,7 @@ public class ShippingResource {
     @POST
     @Path("/orders/{orderId}/ship")
     @Audited(action = "SHIP_ORDER")
+    @RolesAllowed({"ROLE_CUSTOMER"})
     public Response shipOrder(@PathParam("orderId") Long orderId,
                               ShippingRequest request,
                               @Context ContainerRequestContext ctx) {
@@ -45,6 +44,10 @@ public class ShippingResource {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(new APIResponse<>(false, e.getMessage(), null))
                     .build();
+        } catch (ForbiddenException fe) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity(new APIResponse<>(false, fe.getMessage(), null))
+                    .build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity(new APIResponse<>(false, "Unexpected error: " + e.getMessage(), null))
@@ -58,6 +61,7 @@ public class ShippingResource {
     @POST
     @Path("/orders/{orderId}/deliver")
     @Audited(action = "DELIVER_ORDER")
+    @RolesAllowed({"ROLE_ADMIN"})
     public Response deliverOrder(@PathParam("orderId") Long orderId,
                                  @Context ContainerRequestContext ctx) {
         try {
@@ -77,4 +81,3 @@ public class ShippingResource {
         }
     }
 }
-

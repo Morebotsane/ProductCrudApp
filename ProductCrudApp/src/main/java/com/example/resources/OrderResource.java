@@ -14,6 +14,7 @@ import java.util.List;
 import com.example.audit.Audited;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.annotation.security.RolesAllowed;
 
 @Path("/orders")
 @Produces(MediaType.APPLICATION_JSON)
@@ -28,6 +29,7 @@ public class OrderResource {
     // -------------------------
     @GET
     @Audited(action = "LIST_ORDERS")
+    @RolesAllowed({"ROLE_ADMIN"})
     public Response getAllOrders(@Context ContainerRequestContext requestContext) {
         List<OrderResponse> orders = orderService.getAllOrderDtos();
 
@@ -44,6 +46,7 @@ public class OrderResource {
     @GET
     @Path("/{orderId}")
     @Audited(action = "VIEW_ORDER")
+    @RolesAllowed({"ROLE_ADMIN", "ROLE_CUSTOMER"})
     public Response getOrderById(@PathParam("orderId") Long orderId,
                                  @Context ContainerRequestContext requestContext) {
         try {
@@ -68,6 +71,7 @@ public class OrderResource {
     @POST
     @Path("/from-cart/{cartId}")
     @Audited(action = "CREATE_ORDER")
+    @RolesAllowed({"ROLE_ADMIN","ROLE_CUSTOMER"})
     public Response createOrderFromCart(@PathParam("cartId") Long cartId,
                                         @Context ContainerRequestContext requestContext) {
         try {
@@ -94,6 +98,7 @@ public class OrderResource {
     @PUT
     @Path("/{orderId}/status")
     @Audited(action = "UPDATE_ORDER_STATUS")
+    @RolesAllowed({"ROLE_CUSTOMER","ROLE_ADMIN"})
     public Response updateOrderStatus(@PathParam("orderId") Long orderId,
                                       UpdateStatusRequest request,
                                       @Context ContainerRequestContext requestContext) {
@@ -130,6 +135,7 @@ public class OrderResource {
     @GET
     @Path("/customer/{customerId}")
     @Audited(action = "LIST_ORDERS_BY_CUSTOMER")
+    @RolesAllowed({"ROLE_ADMIN","ROLE_CUSTOMER"})
     public Response getOrdersByCustomer(@PathParam("customerId") Long customerId,
                                         @Context ContainerRequestContext requestContext) {
         try {

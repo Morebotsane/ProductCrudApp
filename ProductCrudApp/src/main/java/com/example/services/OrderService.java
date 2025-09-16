@@ -6,7 +6,10 @@ import com.example.dto.mappers.OrderMapper;
 import com.example.dto.mappers.PaymentMapper;
 import com.example.dto.mappers.OrderStatusHistoryMapper;
 import com.example.entities.*;
+import com.example.security.JwtTokenService;
+import com.example.security.exceptions.UnauthorizedAccessException;
 
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -18,12 +21,26 @@ import java.util.List;
 @Stateless
 public class OrderService {
 
-    @Inject private OrderDAO orderDAO;
-    @Inject private CartDAO cartDAO;
-    @Inject private ProductDAO productDAO;
-    @Inject private AddressDAO addressDAO;
-    @Inject private OrderStatusHistoryDAO orderStatusHistoryDAO;
-    @Inject private PaymentDAO paymentDAO;
+    @Inject 
+    private OrderDAO orderDAO;
+    
+    @Inject 
+    private CartDAO cartDAO;
+    
+    @Inject 
+    private ProductDAO productDAO;
+    
+    @Inject 
+    private AddressDAO addressDAO;
+    
+    @Inject 
+    private OrderStatusHistoryDAO orderStatusHistoryDAO;
+    
+    @Inject 
+    private PaymentDAO paymentDAO;
+    
+    @Inject 
+    private JwtTokenService jwtTokenService;
 
     private static final BigDecimal VAT_RATE = new BigDecimal("0.15");
 
@@ -31,6 +48,7 @@ public class OrderService {
     // CREATE ORDER FROM CART
     // -------------------------
     @Transactional
+    @RolesAllowed({"ROLE_CUSTOMER","ROLE_ADMIN"})
     public OrderResponse createOrderFromCartDto(Long cartId) {
         Cart cart = cartDAO.findById(Cart.class, cartId);
         if (cart == null) throw new IllegalArgumentException("Cart not found");
@@ -40,6 +58,12 @@ public class OrderService {
             throw new IllegalStateException("Cart already checked out");
 
         Customer customer = cart.getCustomer();
+        Long currentUserId = jwtTokenService.getCurrentUserId();
+
+        if (!customer.getId().equals(currentUserId)) {
+            throw new UnauthorizedAccessException("Cannot create order from another customer's cart");
+        }
+
         Address address = addressDAO.findDefaultShippingByCustomer(customer)
                 .orElseThrow(() -> new IllegalArgumentException("Customer has no default shipping address"));
 
@@ -98,9 +122,15 @@ public class OrderService {
     // PAY ORDER
     // -------------------------
     @Transactional
+    @RolesAllowed("ROLE_CUSTOMER")
     public OrderResponse payOrder(Long orderId, BigDecimal amount, PaymentMethod method, String txnRef) {
         Order order = orderDAO.findById(Order.class, orderId);
         if (order == null) throw new IllegalArgumentException("Order not found");
+
+        Long currentUserId = jwtTokenService.getCurrentUserId();
+        if (!order.getCustomer().getId().equals(currentUserId)) {
+            throw new UnauthorizedAccessException("Cannot pay another customer's order");
+        }
 
         Payment payment = new Payment();
         payment.setOrder(order);
@@ -129,6 +159,7 @@ public class OrderService {
     // UPDATE ORDER STATUS
     // -------------------------
     @Transactional
+    @RolesAllowed("ROLE_ADMIN")
     public OrderResponse updateStatusDto(Long orderId, OrderStatus newStatus) {
         Order order = orderDAO.findById(Order.class, orderId);
         if (order == null) throw new IllegalArgumentException("Order not found");
@@ -144,21 +175,39 @@ public class OrderService {
     }
 
     // -------------------------
-    // QUERY METHODS (for OrderResource)
+    // QUERY METHODS
     // -------------------------
+    @RolesAllowed({"ROLE_ADMIN", "ROLE_CUSTOMER"})
     public OrderResponse getOrderDto(Long orderId) {
         Order order = orderDAO.findById(Order.class, orderId);
         if (order == null) throw new IllegalArgumentException("Order not found");
+
+        if (jwtTokenService.isCustomer()) {
+            Long currentUserId = jwtTokenService.getCurrentUserId();
+            if (!order.getCustomer().getId().equals(currentUserId)) {
+                throw new UnauthorizedAccessException("Cannot access another customer's order");
+            }
+        }
+
         return mapOrderToResponse(order);
     }
 
+    @RolesAllowed("ROLE_ADMIN")
     public List<OrderResponse> getAllOrderDtos() {
         return orderDAO.findAll(Order.class).stream()
                 .map(this::mapOrderToResponse)
                 .toList();
     }
 
+    @RolesAllowed({"ROLE_ADMIN", "ROLE_CUSTOMER"})
     public List<OrderResponse> getOrdersByCustomerDto(Long customerId) {
+        if (jwtTokenService.isCustomer()) {
+            Long currentUserId = jwtTokenService.getCurrentUserId();
+            if (!customerId.equals(currentUserId)) {
+                throw new UnauthorizedAccessException("Cannot list orders of another customer");
+            }
+        }
+
         return orderDAO.findAll(Order.class).stream()
                 .filter(o -> o.getCustomer() != null && o.getCustomer().getId().equals(customerId))
                 .map(this::mapOrderToResponse)

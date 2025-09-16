@@ -7,6 +7,7 @@ import com.example.entities.Address;
 import com.example.entities.Customer;
 import com.example.dao.AddressDAO;
 import com.example.dao.CustomerDAO;
+import com.example.security.JwtTokenService;
 
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
@@ -17,29 +18,25 @@ import java.util.stream.Collectors;
 @Stateless
 public class CustomerAddressService {
 
-    @Inject
-    private AddressDAO addressDAO;
+    @Inject private AddressDAO addressDAO;
+    @Inject private CustomerDAO customerDAO;
+    @Inject private CustomerAddressMapper mapper;
+    @Inject private AuditService auditService;
+    @Inject private JwtTokenService jwtService;
 
-    @Inject
-    private CustomerDAO customerDAO;
-
-    @Inject
-    private CustomerAddressMapper mapper;
-
-    @Inject
-    private AuditService auditService;
+    private static final String ENTITY_TYPE = "CustomerAddress";
 
     // -------------------------
     // ADD ADDRESS
     // -------------------------
     @Transactional
     public AddressResponse addAddress(Long customerId, AddressRequest request) {
+        enforceAccess(customerId);
         Customer customer = getCustomerById(customerId);
 
         Address address = mapper.toEntity(request);
         address.setCustomer(customer);
 
-        // If marked as default, reset other addresses
         if (address.isDefault()) {
             addressDAO.findByCustomer(customer).forEach(a -> a.setDefault(false));
         }
@@ -47,13 +44,7 @@ public class CustomerAddressService {
         addressDAO.save(address);
         addressDAO.getEntityManager().flush();
 
-        auditService.record(
-                "system",
-                "ADD_ADDRESS",
-                "CustomerAddress",
-                address.getId(),
-                String.format("{\"customerId\": %d, \"addressId\": %d}", customerId, address.getId())
-        );
+        audit("ADD_ADDRESS", customerId, address.getId());
 
         return mapper.toResponse(address);
     }
@@ -62,10 +53,10 @@ public class CustomerAddressService {
     // LIST ADDRESSES
     // -------------------------
     public List<AddressResponse> getAddresses(Long customerId) {
+        enforceAccess(customerId);
         Customer customer = getCustomerById(customerId);
 
-        List<Address> addresses = addressDAO.findByCustomer(customer);
-        return addresses.stream()
+        return addressDAO.findByCustomer(customer).stream()
                 .map(mapper::toResponse)
                 .collect(Collectors.toList());
     }
@@ -75,21 +66,17 @@ public class CustomerAddressService {
     // -------------------------
     @Transactional
     public AddressResponse updateAddress(Long customerId, Long addressId, AddressRequest request) {
+        enforceAccess(customerId);
         Customer customer = getCustomerById(customerId);
 
         Address address = addressDAO.findById(Address.class, addressId);
-        if (address == null || !address.getCustomer().getId().equals(customerId)) {
-            return null; // Not found or not owned by this customer
-        }
+        if (address == null || !address.getCustomer().getId().equals(customerId)) return null;
 
         mapper.updateEntity(address, request);
 
-        // Handle default flag
         if (request.isDefault()) {
             addressDAO.findByCustomer(customer).forEach(a -> {
-                if (!a.getId().equals(addressId)) {
-                    a.setDefault(false);
-                }
+                if (!a.getId().equals(addressId)) a.setDefault(false);
             });
             address.setDefault(true);
         }
@@ -97,13 +84,7 @@ public class CustomerAddressService {
         addressDAO.update(address);
         addressDAO.getEntityManager().flush();
 
-        auditService.record(
-                "system",
-                "UPDATE_ADDRESS",
-                "CustomerAddress",
-                addressId,
-                String.format("{\"customerId\": %d, \"addressId\": %d}", customerId, addressId)
-        );
+        audit("UPDATE_ADDRESS", customerId, addressId);
 
         return mapper.toResponse(address);
     }
@@ -113,33 +94,50 @@ public class CustomerAddressService {
     // -------------------------
     @Transactional
     public boolean deleteAddress(Long customerId, Long addressId) {
-        //Customer customer = getCustomerById(customerId);
+        enforceAccess(customerId);
 
         Address address = addressDAO.findById(Address.class, addressId);
-        if (address == null || !address.getCustomer().getId().equals(customerId)) {
-            return false;
-        }
+        if (address == null || !address.getCustomer().getId().equals(customerId)) return false;
 
         addressDAO.delete(address);
         addressDAO.getEntityManager().flush();
 
-        auditService.record(
-                "system",
-                "DELETE_ADDRESS",
-                "CustomerAddress",
-                addressId,
-                String.format("{\"customerId\": %d, \"addressId\": %d}", customerId, addressId)
-        );
+        audit("DELETE_ADDRESS", customerId, addressId);
 
         return true;
     }
 
     // -------------------------
-    // DAO helpers
+    // DAO helper
     // -------------------------
     private Customer getCustomerById(Long customerId) {
         Customer customer = customerDAO.findById(Customer.class, customerId);
         if (customer == null) throw new IllegalArgumentException("Customer not found");
         return customer;
+    }
+
+    // -------------------------
+    // Ownership / Role enforcement
+    // -------------------------
+    private void enforceAccess(Long customerId) {
+        if (jwtService.isAdmin()) return;
+
+        if (jwtService.isCustomer()) {
+            Long currentUserId = jwtService.getCurrentUserId();
+            if (!currentUserId.equals(customerId)) {
+                throw new SecurityException("Forbidden: Cannot access another customer's addresses");
+            }
+        } else {
+            throw new SecurityException("Forbidden: Unknown role");
+        }
+    }
+
+    // -------------------------
+    // Audit helper
+    // -------------------------
+    private void audit(String action, Long customerId, Long addressId) {
+        String actor = jwtService.getUsername();
+        auditService.record(actor, action, ENTITY_TYPE, addressId,
+                String.format("{\"customerId\": %d, \"addressId\": %d}", customerId, addressId));
     }
 }

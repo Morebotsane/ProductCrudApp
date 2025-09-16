@@ -10,11 +10,12 @@ import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.*;
 import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.Context;
 
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.math.BigDecimal;
+
+import jakarta.annotation.security.RolesAllowed;
 
 @Path("/products")
 @Produces(MediaType.APPLICATION_JSON)
@@ -32,6 +33,7 @@ public class ProductResource {
 
     @GET
     @Audited(action = "LIST_PRODUCTS")
+    @RolesAllowed({"ROLE_CUSTOMER", "ROLE_ADMIN", "ROLE_SUPER"})  // all authenticated users
     public Response getProducts(
             @QueryParam("page") @DefaultValue("1") int page,
             @QueryParam("size") @DefaultValue("10") int size,
@@ -56,6 +58,7 @@ public class ProductResource {
     @GET
     @Path("/{id}")
     @Audited(action = "VIEW_PRODUCT")
+    @RolesAllowed({"ROLE_CUSTOMER", "ROLE_ADMIN", "ROLE_SUPER"})  // all authenticated users
     public Response getProductById(
             @PathParam("id") Long id,
             @Context ContainerRequestContext requestContext
@@ -73,6 +76,7 @@ public class ProductResource {
 
     @POST
     @Audited(action = "CREATE_PRODUCT")
+    @RolesAllowed({"ROLE_ADMIN", "ROLE_SUPER"})  // restricted
     public Response createProduct(
             @Valid ProductRequest request,
             @Context ContainerRequestContext requestContext
@@ -89,6 +93,7 @@ public class ProductResource {
     @PUT
     @Path("/{id}")
     @Audited(action = "UPDATE_PRODUCT")
+    @RolesAllowed({"ROLE_ADMIN", "ROLE_SUPER"})  // restricted
     public Response updateProduct(
             @PathParam("id") Long id,
             @Valid ProductRequest request,
@@ -109,6 +114,7 @@ public class ProductResource {
     @DELETE
     @Path("/{id}")
     @Audited(action = "DELETE_PRODUCT")
+    @RolesAllowed({"ROLE_ADMIN", "ROLE_SUPER"})  // restricted
     public Response deleteProduct(
             @PathParam("id") Long id,
             @Context ContainerRequestContext requestContext

@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.annotation.security.RolesAllowed;
 
 import java.util.List;
 
@@ -38,6 +39,7 @@ public class CustomerAddressResource {
     // -------------------------
     @POST
     @Audited(action = "ADD_ADDRESS")
+    @RolesAllowed({"ROLE_CUSTOMER","ROLE_ADMIN"})
     public Response addAddress(@PathParam("customerId") Long customerId,
                                @Valid AddressRequest request,
                                @Context ContainerRequestContext ctx) {
@@ -57,6 +59,7 @@ public class CustomerAddressResource {
     // -------------------------
     @GET
     @Audited(action = "LIST_ADDRESSES")
+    @RolesAllowed({"ROLE_CUSTOMER","ROLE_ADMIN"})
     public Response getAddresses(@PathParam("customerId") Long customerId,
                                  @Context ContainerRequestContext ctx) {
         List<AddressResponse> addresses = addressService.getAddresses(customerId);
@@ -74,6 +77,7 @@ public class CustomerAddressResource {
     @PUT
     @Path("/{addressId}")
     @Audited(action = "UPDATE_ADDRESS")
+    @RolesAllowed({"ROLE_CUSTOMER","ROLE_ADMIN"})
     public Response updateAddress(@PathParam("customerId") Long customerId,
                                   @PathParam("addressId") Long addressId,
                                   @Valid AddressRequest request,
@@ -99,6 +103,7 @@ public class CustomerAddressResource {
     @DELETE
     @Path("/{addressId}")
     @Audited(action = "DELETE_ADDRESS")
+    @RolesAllowed({"ROLE_CUSTOMER","ROLE_ADMIN"})
     public Response deleteAddress(@PathParam("customerId") Long customerId,
                                   @PathParam("addressId") Long addressId,
                                   @Context ContainerRequestContext ctx) {
